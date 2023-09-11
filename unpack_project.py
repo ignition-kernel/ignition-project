@@ -9,8 +9,8 @@ FILE_ENCODING = 'utf-8'
 def unpack_project_export(zip_filename):
     src_file = os.path.abspath('./dist/%s' % (zip_filename,))
 
-    project_scripts_dir = os.path.abspath('./python')
-    webdev_scripts_dir = os.path.abspath('./webdev')
+    project_scripts_dir = os.path.abspath('./resources/python')
+    webdev_scripts_dir = os.path.abspath('./resources/webdev')
 
     with ZipFile(src_file, 'r') as projzip:
         

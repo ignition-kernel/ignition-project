@@ -210,7 +210,7 @@ def package_project_export(zip_root, semver):
 
 if __name__ == '__main__':
 
-    mirror_into_ignition_project_script_format('./python', './build/ignition/script-python')
-    mirror_into_ignition_webdev_format('./webdev', './build/com.inductiveautomation.webdev/resources')
+    mirror_into_ignition_project_script_format('./resources/python', './build/ignition/script-python')
+    mirror_into_ignition_webdev_format('./resources/webdev', './build/com.inductiveautomation.webdev/resources')
 
     package_project_export('./dist/', 'v' + str(highest_tagged_git_version('./')))

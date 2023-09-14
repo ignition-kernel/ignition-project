@@ -17,6 +17,8 @@ from time import sleep
 import re
 import itertools
 
+from org.apache.commons.lang3 import SystemUtils
+
 from shared.data.context.core import Context
 
 
@@ -82,7 +84,7 @@ class JupyterKernelCore(
 
 	__slots__ = (
 		'kernel_name',                 # generic description of kernel type
-		#'kernel_id',                   # lookup key for reference in Ignition
+		'kernel_id',                   # lookup key for reference in Ignition
 		'signature_scheme', 'key',     # id/key used by Jupyter (likely same as kernel_id)
 		'transport', 'ip', 'zcontext', 
 		
@@ -227,9 +229,9 @@ class JupyterKernelCore(
 			
 		self._pre_init()
 		
-		## deprecated - the context always has an identifier
-		#if self.kernel_id is None:
-		#	self.kernel_id = random_id()
+		# the context always has an identifier
+		if self.kernel_id is None:
+			self.kernel_id = random_id()
 
 		if self.key is None:
 			self.key = str(uuid4())
@@ -245,16 +247,6 @@ class JupyterKernelCore(
 		self._post_init()
 
 
-	@property
-	def kernel_id(self):
-		return self._identifier
-
-	@kernel_id.setter
-	def kernel_id(self, new_identifier):
-		# NOTE: This must be done very early in the initialization - before any threads are named
-		# set the private value directly to avoid the setter's interlock'
-		self._identifier = new_identifier
-	
 	@property
 	def overwatch_thread(self):
 		if self._context_threads:
@@ -272,13 +264,11 @@ class JupyterKernelCore(
 			return '' # no session!
 
 
-	
 	def check_pulse(self):
 		if self.cardiac_arrest_timeout:
 			if self.last_heartbeat < (datetime.now() - self.cardiac_arrest_timeout):
 				self.logger.warn('Cardiac arrest!')
 				raise CardiacArrest
-
 
 
 	def tear_down(self):
@@ -494,14 +484,18 @@ class JupyterKernel(
 	_CONTEXT_THREAD_ROLE = 'overwatch'
 	
 	_THREAD_NAME_SEPARATOR = ':' # avoid '-' because of UUID identifiers
+	
+	_EVENT_LOOP_DELAY = 0.01 # seconds
+	_THREAD_DEATH_LOOP_WAIT = 0.1 # seconds
 
-	def __init__(self, kernel_id=None, *args, **kwargs):
-		kwargs['identifier'] = kernel_id
-		super(JupyterKernel, self).__init__(*args, **kwargs)
+#	def __init__(self, kernel_id=None, *args, **kwargs):
+#		kwargs['identifier'] = kernel_id
+#		super(JupyterKernel, self).__init__(*args, **kwargs)
 
 
 	def initialize_context(self, *init_args, **init_kwargs):
 		self.initialize_kernel(*init_args, **init_kwargs)
+		self.identifier = self.kernel_id
 
 	def launch_context(self):
 		self.launch_kernel()

@@ -11,13 +11,17 @@ from shared.data.context.utility import re_match_groupdict, findThreads, TypeNot
 from shared.data.context.config import CONTEXT_USES_SLOTS
 from shared.data.context.threading.base import HeadlessContext
 
+from shared.tools.meta import PythonFunctionArguments
+
+from shared.data.context.autoinit import ReorderedInitArgs
+
 
 import re
 
 
 
 
-class MetaContext(type):
+class MetaContext(ReorderedInitArgs, type):
 	__module__ = shared.tools.meta.get_module_path(1)
 	
 	# set to some dict-like thing that returns based on [identifier] or the slice [identifier:class_name]
@@ -25,7 +29,9 @@ class MetaContext(type):
 
 	_META_LOGGER = shared.tools.logging.Logger('MetaContext')
 
-
+	_INIT_ARG_BASE_METHOD_NAME = 'initialize_context'
+	_INIT_ARG_BASE_CLASS = 'Context'
+	
 
 	def __new__(metacls, class_name, class_bases, class_configuration):
 		if CONTEXT_USES_SLOTS:
@@ -56,6 +62,7 @@ class MetaContext(type):
 			yield thread
 	
 	def __getitem__(cls, identifier):
+		identifier = str(identifier) # coerce for consistency (and regex compatability)
 		# for direct lookup (direct reference)
 		if cls._CONTEXT_CACHE:
 			try:
@@ -108,6 +115,7 @@ class MetaContext(type):
 					pass
 
 	def __contains__(cls, identifier):
+		identifier = str(identifier) # coerce for consistency (and regex compatability)
 		if cls._CONTEXT_CACHE:
 			try:
 				if cls._CONTEXT_CACHE is ExtraGlobal:

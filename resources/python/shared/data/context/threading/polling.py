@@ -7,7 +7,7 @@
 
 """
 from shared.data.context.utility import async, apply_jitter
-from shared.data.context.utility import formatted_traceback, JavaException
+from shared.data.context.utility import formatted_traceback, JavaException, InterruptedException
 from shared.data.context.threading.base import ThreadContexts, Thread
 from shared.data.context.config import CONTEXT_USES_SLOTS
 
@@ -199,7 +199,7 @@ class EventLoop(ThreadContexts):
 			self.logger.debug('Stop requested.')
 			return
 		
-		except KeyboardInterrupt:
+		except (KeyboardInterrupt, InterruptedException):
 			# noisily stop
 			raise KeyboardInterrupt('Interrupt signal caught for %r' % role_method)
 		

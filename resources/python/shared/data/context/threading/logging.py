@@ -15,7 +15,7 @@ from shared.data.context.config import CONTEXT_USES_SLOTS
 from java.lang import Thread
 
 
-DEFAULT_LOGGING_LEVEL = 'trace'
+DEFAULT_LOGGING_LEVEL = 'info'
 
 
 class ThreadSpecificLogging(ThreadContexts):

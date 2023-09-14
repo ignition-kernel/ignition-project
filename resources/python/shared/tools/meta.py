@@ -292,6 +292,10 @@ class PythonFunctionArguments(object):
 					for dix,val in enumerate(self._default_values))
 
 	@property
+	def nondefault(self):
+		return tuple(arg for arg in self.args[:self.num_nondefault])
+
+	@property
 	def has_varargs(self):
 		return bool(self.tablecode.co_flags & self._VARARGS)
 

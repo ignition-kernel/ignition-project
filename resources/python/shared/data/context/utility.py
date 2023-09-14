@@ -44,18 +44,7 @@ def apply_jitter(delay, jitter_fraction):
 #####################
 # thorough error logs
 
-import traceback
-from java.lang import Exception as JavaException
-
-def formatted_traceback(exception, exc_tb=None):
-	if exception is None:
-		return ''
-	if isinstance(exception, Exception): # use the output of sys.exc_info()
-		return ''.join(traceback.format_exception(type(exception), exception, exc_tb))
-	elif isinstance(exception, JavaException):
-		return java_full_stack(exception)
-	else:
-		return repr(exception)
+from shared.tools.error import *
 
 
 ####################
@@ -65,17 +54,28 @@ def formatted_traceback(exception, exc_tb=None):
 class DictLikeAccessMixin(object):
 	
 	def __getitem__(self, item):
+		assert not item.startswith('_'), 'Dict access is not for private parts'
 		try:
 			return getattr(self, item)
 		except AttributeError:
 			raise KeyError('%r is not accessible from Kernel Context' % (item,))
 
 	def __setitem__(self, item, value):
+		assert not item.startswith('_'), 'Dict access is not for private parts'
 		try:
 			setattr(self, item, value)
 		except AttributeError:
-			raise KeyError('%r is not accessible from Kernel Context' % (item,))            
+			raise KeyError('%r is not accessible from Kernel Context' % (item,))       
 
+	# allows for format and kwarg interpolation
+	def __len__(self):
+		return len(self.keys())
+	
+	def __iter__(self):
+		return (attr for attr in dir(self) if not attr.startswith('_'))
+	
+	def keys(self):
+		return list(iter(self))
 
 ####################
 # jailbreaking stack

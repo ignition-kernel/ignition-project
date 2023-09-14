@@ -56,7 +56,10 @@ class NamedThreadContexts(ThreadContexts):
 
 	@identifier.setter
 	def identifier(self, new_id):
-		raise ValueError("No changing an identifier after init - too much stuff and contexts already know about it.")
+		self._identifier = str(new_id)
+		for thread in frozenset(self._all_threads):
+			self._name_thread(thread)
+		#raise ValueError("No changing an identifier after init - too much stuff and contexts already know about it.")
 
 
 	@classmethod

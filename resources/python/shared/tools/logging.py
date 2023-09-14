@@ -9,9 +9,12 @@ try:
 except ImportError:
 	pass # only needed for when the logger's running on a Vision client; gateway won't have this in scope.
 
-import sys, re
-from shared.tools.meta import currentStackDepth, getObjectByName, get_perspective_self
+from shared.tools.meta import currentStackDepth, getObjectByName, get_perspective_self, stackRootFrame
 from shared.tools.meta import GLOBAL_MESSAGE_PROJECT_NAME
+
+import sys, re
+from datetime import datetime, timedelta
+
 
 from exceptions import BaseException
 import java.lang.Class as JavaClass
@@ -82,20 +85,29 @@ class BaseLogger(object):
 		frame = sys._getframe(self._stackDepth)
 		varScope = dict(frame.f_globals.items() + frame.f_locals.items() + kwargs.items())
 
-		# it's possible that the interpolator will get confused if there's
-		# a naturally occuring formatter - it's rare, but %b shows up sometimes!
 		formatted_message = message
-		for i in range(20): # don't even chance infinite loops here...
-			try:
-				formatted_message = message % varScope
-				break
-			except ValueError as error:
-				match = BAD_FORMAT_GUESS_PATTERN.match(str(error))
-				if match:
-					ix = int(match.groups()[0])
-					message = message[:ix] + '%' + message[ix:]
-			except Exception: # all other errors are irrecoverable
-				break
+		
+		# try new style :D
+		try:
+			formatted_message = formatted_message.format(*args, **varScope)
+		except:
+			pass
+		
+		# old-style and backwards compatible
+		if '%' in formatted_message:
+			# it's possible that the interpolator will get confused if there's
+			# a naturally occuring formatter - it's rare, but %b shows up sometimes!
+			for i in range(20): # don't even chance infinite loops here...
+				try:
+					formatted_message = formatted_message % varScope
+					break
+				except ValueError as error:
+					match = BAD_FORMAT_GUESS_PATTERN.match(str(error))
+					if match:
+						ix = int(match.groups()[0])
+						message = message[:ix] + '%' + message[ix:]
+				except Exception: # all other errors are irrecoverable
+					break
 		return formatted_message
 
 	def _generateMessage(self, *args, **kwargs):
@@ -127,9 +139,29 @@ class ConsoleLogger(BaseLogger):
 	"""A basic logger that prints log messages.
 	This exposes the more sophisticated message formatting utilities.
 	"""
+	_DEFAULT_JAVA_LOGGER_FORMAT = '{timestamp:>12.12} [{context}] {level:>5} {loggerName} - {message}'
+	_DEFAULT_PRETTY_FORMAT = '[{timestamp:>12.12} {level:>5}] ({loggerName}) {message}'
+	_TIME_FORMAT = '%H:%M:%S.%f'
+	
+	_DEFAULT_FORMAT = _DEFAULT_PRETTY_FORMAT
+	
+	def __init__(self, loggerName=None, prefix=None, suffix=None, format_string=None, time_format=None):
+		self.loggerName = loggerName
+		self.prefix = prefix
+		self.suffix = suffix
+		self._format_string = format_string or self._DEFAULT_FORMAT
+		self._time_format = time_format or self._TIME_FORMAT
+	
 	def _log(self, level, *args, **kwargs):
 		message = self._generateMessage(*args, **kwargs)
-		print '[%s] %s' % (level, message)
+		print self._format_string.format(** {
+			'timestamp': datetime.now().strftime(self._time_format),
+			'context': 'console',
+			'level': level.upper(),
+			'loggerName': self.loggerName,
+			'message': message,
+		})
+		#print '[%s] %s' % (level, message)
 
 	def trace(self, *args, **kwargs):
 		self._log('trace', *args, **kwargs)
@@ -148,29 +180,31 @@ class ConsoleLogger(BaseLogger):
 
 
 class PrintLogger(object):
-	"""The most basic logger.
-	Essentially, this just a printer, but it interfaces like a logger.
-	"""
-	@staticmethod
-	def trace(message):
-		print '[%s] %s' % ('trace', message)
-	@staticmethod
-	def debug(message):
-		print '[%s] %s' % ('debug', message)
-	@staticmethod
-	def info(message):
-		print '[%s] %s' % ('info', message)
-	@staticmethod
-	def warn(message):
-		print '[%s] %s' % ('warn', message)
-	@staticmethod
-	def error(message):
-		print '[%s] %s' % ('error', message)
+		"""The most basic logger.
+		Essentially, this just a printer, but it interfaces like a logger.
+		"""
+		@staticmethod
+		def trace(message):
+			print '[%s] %s' % ('trace', message)
+		@staticmethod
+		def debug(message):
+			print '[%s] %s' % ('debug', message)
+		@staticmethod
+		def info(message):
+			print '[%s] %s' % ('info', message)
+		@staticmethod
+		def warn(message):
+			print '[%s] %s' % ('warn', message)
+		@staticmethod
+		def error(message):
+			print '[%s] %s' % ('error', message)
+
 
 
 class Logger(BaseLogger):
 	"""Autoconfiguring logger. This detects its calling environment and tries to set itself up.
 	"""
+	
 	def __init__(self, loggerName=None, prefix=None, suffix=None, relay=False, target_context=None, logging_level=None):
 		#raise NotImplementedError('This is under development and is not fully functional yet.')
 		self.relay = relay
@@ -284,7 +318,6 @@ class Logger(BaseLogger):
 		# Playground!
 		if scope in ('buffer', 'input'):
 			self.loggerName = loggerName or 'Script Console'
-			self.logger = PrintLogger()
 		# Scripts!
 		elif scope.startswith('module:'):
 			project_name = system.util.getProjectName()
@@ -346,6 +379,10 @@ class Logger(BaseLogger):
 			self._configureVisionClientRelay()
 		else:
 			self.loggerName = loggerName or 'Logger'
+		
+		if self._isScriptConsole():
+			self.logger = ConsoleLogger(self.loggerName, self.prefix, self.suffix)
+		else:
 			self._set_ignition_logger()
 
 
@@ -353,6 +390,13 @@ class Logger(BaseLogger):
 		self.logger = system.util.getLogger(self.loggerName)
 		if self._logging_level in self._ignition_logLevels:
 			system.util.setLoggingLevel(self.loggerName, self._logging_level)
+
+	@staticmethod
+	def _isScriptConsole():
+		"""
+		Returns True if the script was kicked off in the console.
+		"""
+		return stackRootFrame().f_code.co_filename[1:-1] in ('buffer', 'input')
 
 
 	@staticmethod

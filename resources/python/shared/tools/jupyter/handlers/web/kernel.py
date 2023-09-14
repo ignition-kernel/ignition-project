@@ -108,11 +108,19 @@ class KernelREST(SimpleREST):
 		doHead(self.path)
 	
 	def _do_GET(self):
-		return doGet(self.path)
+		return doGet(self)
 	
 	def _do_POST(self):
-		return doPost(self.payload)
+		return doPost(self)
 	
 	def _do_DELETE(self):
-		return doDelete(self.path)
-	
+		return doDelete(self)
+
+
+
+
+def launch_designer_kernel_management(port=8989):
+	from shared.tools.sidecar import SidecarContext
+	sidecar = SidecarContext(KernelREST, 8989)
+	_ = sidecar.start_loop()
+

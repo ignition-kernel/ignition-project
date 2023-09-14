@@ -9,6 +9,7 @@ import urllib
 import sys
 import re
 import base64
+import json
 
 from java.lang import Exception as JavaException
 from org.apache.commons.lang3.exception import ExceptionUtils
@@ -123,8 +124,9 @@ class SimpleREST(BaseHTTPServer.BaseHTTPRequestHandler):
 				self.send_header('Content-Length', len(response))
 		elif response is None:
 			pass
-		elif isinstance(response, dict):
-			response = system.util.jsonEncode(response, 2)# .encode('utf-8')
+		elif isinstance(response, (tuple, list, dict)):
+			#response = system.util.jsonEncode(response, 2)# .encode('utf-8') # <== fails on lists
+			response = json.dumps(response,indent=2)
 			self.send_header('Content-Type', 'application/json')
 			self.send_header('Content-Length', len(response))
 		elif isinstance(response, (str, unicode)):
@@ -231,10 +233,89 @@ class SimpleREST(BaseHTTPServer.BaseHTTPRequestHandler):
 		return None
 
 
+try:
+	from shared.data.context.core import Context
+	
+	class SidecarContext(Context):
+	
+		DISALLOWED_PORTS = set([
+			80, 443, 8088, 8043, 8060, 8090, 
+		])
+		_MINIMUM_PORT = 7000
+		_DEFAULT_RANGE = slice(8100, 8700)
+		PORTS_IN_USE = set()
+		
+		# context settings
+		_EVENT_LOOP_DELAY = 0.01 # seconds
+		_INITIAL_LOGGING_LEVEL = 'info'
+		
+		
+		def initialize_context(self, http_handler, port=None, hostname='localhost'):
+			# validate the port
+			self._select_port(port)
+			self.identifier = self.port
+			
+			# set the host
+			self.hostname = hostname
+			
+			self._http_handler = http_handler
+			
+			# start up the service
+			self.httpd = SimpleServer((self.hostname, self.port), self._http_handler)
+			
+			
+		def launch_context(self):
+			self.logger.info('{self._http_handler} sidecar starting up on {self.hostname}:{self.port}')
+			
+			# start the request loop
+			self.handle_requests()
+		
+		def poll_context(self):
+			pass
+		
+		@Context.poll('requests')
+		def handle_requests(self):
+			self.httpd.handle_request()
+	
+	
+		def _select_port(self, port):
+			if port is None:
+				self._select_port(self._DEFAULT_RANGE)
+				return
+			elif isinstance(port, slice):
+				port_span = port
+				for i in range(100):
+					port = random.randint(port_span.start, port_span.stop)
+					if self.is_port_valid(port):
+						break
+				else:
+					raise RuntimeError('A valid port was not quickly selected for %r.' % (port_span,))
+			elif isinstance(port, int):
+				assert self.is_port_valid(port), 'Port given is not available: %r' % (port,)
+			else:
+				raise ValueError('Port not valid: %r' % (port,))
+			self.PORTS_IN_USE.add(port)
+			self.port = port
+		
+		def _release_port(self):
+			self.PORTS_IN_USE.remove(port)
+			
+	
+		def is_port_valid(self, port):
+			return not any([
+				port < self._MINIMUM_PORT,
+				port in self.DISALLOWED_PORTS,	
+				port in self.PORTS_IN_USE,
+			])
+
+except ImportError:
+	pass # no sidecar context management :C
+
 
 def shutdown(port):
 	session = ExtraGlobal.setdefault(port, 'Sidecar', {})
 	session['shutdown'] = True
+
 
 
 @async(name='Sidecar-REST')

@@ -1,7 +1,7 @@
 logger = shared.tools.jupyter.logging.Logger()
 
 from shared.tools.jupyter.logging import log_message_event
-from shared.tools.jupyter.meta import get_gateway_hyperlink
+#from shared.tools.jupyter.meta import get_gateway_hyperlink
 
 
 
@@ -24,10 +24,10 @@ def kernel_info_request(kernel, message):
 	        },
 	        "banner": "Metatools kernel - tools for building tools",
 	        "help_links": [
-	        	{
-	        		'text': 'Gateway Status', 
-	        	 	'url' : get_gateway_hyperlink('web/status/sys.overview', force_ssl=True),
-	        	},
+#	        	{	# only gateway, does not apply to designer
+#	        		'text': 'Gateway Status', 
+#	        	 	'url' : get_gateway_hyperlink('web/status/sys.overview', force_ssl=True),
+#	        	},
 	        ]
 		}
 

@@ -1,12 +1,14 @@
 from zipfile import ZipFile
-from git_semver_tags import Version
+# from git_semver_tags import Version, highest_tagged_git_version, tag_datetime
 import os, sys, re
 
 
 FILE_ENCODING = 'utf-8'
 
+DIST_EXPORT_FOLDER = './dist'
 
-def unpack_project_export(zip_filename):
+
+def unpack_project_export(zip_filename, export_folder=DIST_EXPORT_FOLDER):
     src_file = os.path.abspath('./dist/%s' % (zip_filename,))
 
     project_scripts_dir = os.path.abspath('./resources/python')
@@ -37,41 +39,57 @@ def unpack_project_export(zip_filename):
 
 
 
+# def latest_export_version(version_filter=None, search_root=DIST_EXPORT_FOLDER):
+#     EXPORT_FILENAME_PATTERN = re.compile('(?P<project>.+)_(?P<version>v.+).zip', re.I)
 
-def latest_export_version(version_filter=None, search_root='./dist/'):
-    EXPORT_FILENAME_PATTERN = re.compile('(?P<project>.+)_(?P<version>v.+).zip', re.I)
+#     desired_version = Version(version_filter)
 
-    desired_version = Version(version_filter)
+#     export_bundles = []
+#     for filename in os.listdir(search_root):
+        
+#         matched = EXPORT_FILENAME_PATTERN.match(filename)
+        
+#         if not matched:
+#             continue
+        
+#         version = Version(matched.groupdict()['version'])
+        
+#         if not version in desired_version:
+#             continue
 
-    export_bundles = []
-    for filename in os.listdir(search_root):
+#         export_bundles.append((version, filename))
         
-        matched = EXPORT_FILENAME_PATTERN.match(filename)
-        
-        if not matched:
-            continue
-        
-        version = Version(matched.groupdict()['version'])
-        
-        if not version in desired_version:
-            continue
+#     export_bundles.sort(reverse=True)
 
-        export_bundles.append((version, filename))
-        
-    export_bundles.sort(reverse=True)
+#     return export_bundles[0][1]
 
-    return export_bundles[0][1]
+
+
+def latest_export(search_root=DIST_EXPORT_FOLDER):
+    return sorted([
+        filename
+        for filename
+        in os.listdir(search_root)
+        if filename.endswith('.zip')
+    ], key=lambda filename: -os.path.getmtime(os.path.join(search_root, filename))
+    )[0]
 
 
 
 if __name__ == '__main__':
 
-    if len(sys.argv) > 1:
-        version_filter = sys.argv[1]
-    else:
-        version_filter = None
+    # if len(sys.argv) > 1:
+    #     version_filter = sys.argv[1]
+    # else:
+    #     version_filter = None
 
-    project_export = latest_export_version(version_filter)
+
+    # if version_filter:
+    #     project_export = latest_export_version(version_filter)
+    # else:
+    #     project_export = latest_export()
+
+    project_export = latest_export()
 
     print('Unpacking %s' % (project_export,))
     unpack_project_export(project_export)

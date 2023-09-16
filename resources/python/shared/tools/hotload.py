@@ -168,7 +168,6 @@ from java.lang import Exception as JavaException, NoClassDefFoundError
 from java.util.jar import JarFile
 
 
-
 class JarClassLoader(object):
 	"""Load in jars via an alternate method from just injecting into sys.path
 
@@ -180,42 +179,79 @@ class JarClassLoader(object):
 	do not seem to resolve properties on load, returning the property instead
 	of the class itself. Oh well.
 	"""
-	def __init__(self, jar_file_path):
-		self.jar_file_path = jar_file_path
-		self.urlLoader = URLClassLoader(array([File(jar_file_path).toURI().toURL()], URL))
-		self.jarFile = JarFile(jar_file_path)
+	def __init__(self, jar_file_paths):
+		self.jar_file_paths = jar_file_paths
 		
-		self.class_list = set(
-				str(class_name)[:-6].replace('/', '.') 
-				for class_name
-				in self.jarFile.entries()
-				if str(class_name).endswith('.class')
-			)
-			
-		self.packages = {}
-		for class_path in self.class_list:
-			package_path, _, class_name = class_path.rpartition('.')
-			if not package_path in self.packages:
-				self.packages[package_path] = set()
-			self.packages[package_path].add(class_name)
-
+#		if not self.jar_file_path in sys.path:
+#			sys.path.append(self.jar_file_path)
+		
+		self.urlLoader = URLClassLoader(array([
+			File(jar_file_path).toURI().toURL()
+			for jar_file_path
+			in jar_file_paths
+		], URL))
+		
+		self.jarFiles = [
+			JarFile(jar_file_path)
+			for jar_file_path
+			in jar_file_paths
+		]
+		
+		self.class_list = set()
 		self.class_cache = {}
+		self.packages = {}
+		self.package_jars = {} # for knowing what the file path should be
+		
+		for jar_file_path, jarFile in zip(self.jar_file_paths, self.jarFiles):
+			for class_name in jarFile.entries():
+				if not str(class_name).endswith('.class'):
+					continue # path, not class
+				class_path = str(class_name)[:-6].replace('/', '.')
+				self.class_list.add(class_path)
+				
+				# module paperwork
+				package_path, _, class_name = class_path.rpartition('.')
+				if not package_path in self.packages:
+					self.packages[package_path] = set()
+					self.package_jars[package_path] = jar_file_path
+				self.packages[package_path].add(class_name)
+				
+		# grind over classes
+		for class_path in self.class_list:
+			self.class_cache[class_path] = self.urlLoader.loadClass(class_path)
 		
 		self.inject_sys()
-		
+	
+	
 	def inject_sys(self):
 		for package_path in sorted(self.packages):
-			module = imp.new_module(package_path)
-			module.__file__ = os.path.join(self.jar_file_path, package_path)
-			module.__name__ = package_path
-			module.__package__ = '.'.join(package_path.split('.')[:1]) # I forget why this is needed...
+			module = self.create_empty_module(package_path)
 			
-			for class_name in self.packages[package_path]:
-				class_name = class_name.partition('$')[0]
-				setattr(module, class_name, self.get_class(package_path, class_name))
+			# to maintain import chain, we need to inject the intermediary packages
+			parent_package_path = self.get_parent_package_path(package_path)
+			if parent_package_path:
+				if parent_package_path not in sys.modules:
+					sys.modules[parent_package_path] = self.create_empty_module(parent_package_path)
+				parent = sys.modules[parent_package_path]
+				if type(parent) == "<type 'module'>":
+					setattr(parent, package_path.rpartition('.')[2], module)
+				
+				for class_name in self.packages[package_path]:
+					class_name = class_name.partition('$')[0]
+					setattr(module, class_name, self.get_class(package_path, class_name))
 			
 			sys.modules[package_path] = module
-			
+	
+	def create_empty_module(self, package_path):
+		jar_file_path = self.package_jars.get(package_path, '.')
+		module = imp.new_module(package_path)
+		module.__file__ = os.path.join(jar_file_path, package_path)
+		module.__name__ = package_path
+		module.__package__ = self.get_parent_package_path(package_path) # I forget why this is needed...
+		return module
+		
+	def get_parent_package_path(self, package_path):
+		return '.'.join(package_path.split('.')[:-1])
 		
 	def get_class(self, package_path, class_name):
 		if not (package_path, class_name) in self.class_cache:
@@ -224,7 +260,5 @@ class JarClassLoader(object):
 		return self.class_cache[(package_path, class_name)]
 
 
-
 def jar_class_grind(jar_paths):
-	for jar_path in jar_paths:
-		_ = JarClassLoader(jar_path)
+	_ = JarClassLoader(jar_paths)

@@ -17,6 +17,7 @@ logger = shared.tools.jupyter.logging.Logger()
 __all__ = ['KernelMessagingMixin']
 
 
+from shared.tools.jupyter.base import JupyterKernelBaseMixin
 from shared.tools.jupyter.wire import WireMessage
 from shared.tools.jupyter.zmq import SocketType, ZMsg
 from shared.tools.jupyter.status import declare_busy, declare_idle
@@ -79,7 +80,7 @@ class ContextManagedMessage(WireMessage):
 
 
 
-class KernelMessagingMixin(object):
+class KernelMessagingMixin(JupyterKernelBaseMixin):
 	"""
 	Consolidate the messaging bits for the kernel in one place.
 

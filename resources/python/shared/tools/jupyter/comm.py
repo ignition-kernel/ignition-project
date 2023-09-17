@@ -6,9 +6,11 @@
 logger = shared.tools.jupyter.logging.Logger()
 
 
+from shared.tools.jupyter.base import JupyterKernelBaseMixin
 
 
-class KernelCommMixin(object):
+
+class KernelCommMixin(JupyterKernelBaseMixin):
 	__slots__ = (
 		# custom message management
 		'comms', 'comm_targets',

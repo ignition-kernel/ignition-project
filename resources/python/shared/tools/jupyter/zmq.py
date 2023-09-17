@@ -105,7 +105,7 @@ def load_jars(libraries, jar_folder=JAR_FOLDER):
 #		_ = JarClassLoader(expected_jar_location)
 #		sys.path.append(expected_jar_location)
 	
-	logger.info('{library} added to path.')
+	logger.debug('{library_names} added to path.', library_names=[l['library'] for l in libraries])
 
 try:
 	from org.zeromq import SocketType, ZMQ, ZMsg, ZPoller, ZContext, ZMQException

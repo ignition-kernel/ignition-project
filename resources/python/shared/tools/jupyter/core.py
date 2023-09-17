@@ -15,13 +15,13 @@ import string
 import json
 from time import sleep
 import re
-import itertools
 
 from org.apache.commons.lang3 import SystemUtils
 
 from shared.data.context.core import Context
 
 
+from shared.tools.jupyter.base import JupyterKernelBaseMixin
 from shared.tools.jupyter.messages import KernelMessagingMixin
 from shared.tools.jupyter.comm import KernelCommMixin
 from shared.tools.jupyter.catch import *
@@ -61,6 +61,15 @@ class SlotDefaultsMixin(object):
 
 
 	def __init__(self, *init_args, **init_kwargs):
+		# collect the defaults from each base class
+		# (this is probably more appropriately in the metaclass, defined at subclass
+		#  creation, but I didn't want to get in the way of how the context did things)
+		slot_aliases = {}
+		slot_defaults = {}
+		for base_class in reversed(type(self).__mro__):
+			for d, bcattr in zip((slot_defaults, slot_aliases,), 
+								 ('_SLOT_DEFAULTS', '_SLOT_ALIAS_BRIDGE',)):
+				d.update(getattr(base_class, bcattr, {}))
 		# set defaults before anything else
 		for slot in self.__slots__:
 			try:
@@ -78,6 +87,7 @@ class JupyterKernelCore(
 	KernelCommMixin,
 	SlotDefaultsMixin,	
 	Context,
+	JupyterKernelBaseMixin,
 	):
 	"""
 	The Kernel.
@@ -280,6 +290,8 @@ class JupyterKernelCore(
 		curve = Curve()
 		self._server_public_key, self._server_secret_key = curve.keypairZ85()
 		
+		# cooperate on initialization, in case it's used
+		super(JupyterKernelCore, self).initialize_kernel(**init_kwargs)
 		self._post_init()
 
 
@@ -344,7 +356,8 @@ class JupyterKernelCore(
 				for attr in [attr for attr in self.__slots__ if attr.endswith('_port') or attr.endswith('_socket')]:
 					setattr(self, attr, None)
 			
-			# regardless of previous success, leave the rest to JeroMQ to clean up
+				super(JupyterKernelCore, self).tear_down()
+			
 			finally:
 				self.logger.debug('Destroying zcontext...')
 				self.zcontext.destroy()

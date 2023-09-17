@@ -1,5 +1,9 @@
 """
 	Basically just a place to put different priming contexts.
+
+	To start a context up with variables already injected into scope, put them here.
+		Note: use ScopeMixin.inject_scope_project to inject the scripts from another project
+		into the kernel's ExecutionContext session!
 	
 	Personally, I prefer my metatools stuff :) - ARG
 
@@ -22,6 +26,11 @@ class ScopeMixin(object):
 	
 	
 	def inject_scope_history(self):
+		"""
+		Expose past cell input and output. 
+		
+		Handy for when a cell is deleted but a stacktrace still ends up referencing it.
+		"""
 		ec_locals  = self.python_state_locals
 		
 		# IPython-y things
@@ -29,6 +38,7 @@ class ScopeMixin(object):
 		ec_locals['Out'] = ResultHistory(self, 'display_object')
 	
 	def inject_scope_metatools(self):
+		"""Inject metatools stuff, along with the kernel and Ignition context."""
 		ec_locals  = self.python_state_locals
 	
 		# helpful interactive bits
@@ -37,7 +47,8 @@ class ScopeMixin(object):
 		ec_locals['p'] = shared.tools.pretty.p
 		ec_locals['pdir'] = shared.tools.pretty.pdir
 
-	def inject_scope_project(self, project_name):		
+	def inject_scope_project(self, project_name):
+		"""Alias the scripts from another project into this kernel's scope."""	
 		ec_globals = self.python_state_globals
 		
 		ignition_context = shared.tools.meta.getIgnitionContext()

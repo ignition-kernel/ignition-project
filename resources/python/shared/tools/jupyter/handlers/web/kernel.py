@@ -1,5 +1,12 @@
 """
 	REST API Endpoints for kernel control
+
+	The interaction here is generalized because Designer sessions
+	don't have WebDev. So while it's straightforward and convenient
+	to use WebDev for accessing gateway context, we gotta do things
+	the hard way for making Jupyter available to a Designer session.
+
+	See .core for more in-depth explanations of the @rest decorator.
 """
 logger = shared.tools.jupyter.logging.Logger()
 

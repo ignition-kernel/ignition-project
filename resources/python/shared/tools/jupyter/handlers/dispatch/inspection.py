@@ -2,6 +2,13 @@
 	Code completion
 	
 	https://jupyter-protocol.readthedocs.io/en/latest/messaging.html#completion
+
+	This is super _ultra_ fast and dirty.
+	Better introspection will be available as features get fleshed out.
+	Or I need them. But for now at least something vaguely useful happens
+	when tab is hit.
+
+	See .exeuction.coding for more on the wacky hack that grabs contextual info.
 """
 
 logger = shared.tools.jupyter.logging.Logger()

@@ -2,6 +2,10 @@
 	Object inspection
 	
 	https://jupyter-protocol.readthedocs.io/en/latest/messaging.html#completion
+
+	This complements the .inspection handler, but instead of object introspection
+	this looks for how to finish a partially written word. Same tab-press, different
+	context.
 """
 
 logger = shared.tools.jupyter.logging.Logger()

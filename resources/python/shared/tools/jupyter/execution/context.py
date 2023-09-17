@@ -1,7 +1,7 @@
 """
-	Run Python, one command at a time.
+	Run Python, one text buffer at a time.
 	
-	
+	This is what runs code. The Kernel has a .session instance of ExecutionContext.
 """
 logger = shared.tools.jupyter.logging.Logger()
 
@@ -48,7 +48,11 @@ class ExecutionContext(ScopeMixin):
 		we're actively intercepting execution details.		
 		"""
 		# This is very likely _not_ true, but frankly I don't want this to be multithreaded.
-		# It's not meant to be multithreaded in execution and no effort will be made to keep it safe.
+		# It's not meant to be multithreaded in execution and no effort will be made to keep it safe
+		# between threads. Jython is multithreaded, but any ONE script oughta be single threaded.
+		# Use an ExecutionContext for each thread if there's going to be more than one.
+		#
+		# ... but don't do that. That's just... I'm not even sure what that'd look like in theory.
 		return Py.getThreadState().systemState
 	
 	@property

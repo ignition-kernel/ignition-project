@@ -1,3 +1,8 @@
+"""
+	Execute code requests
+
+	THE request.
+"""
 logger = shared.tools.jupyter.logging.Logger()
 
 
@@ -11,13 +16,21 @@ import re
 @log_message_event
 def execute_request(kernel, message):
 	"""
+	Execute code.
 	
 	https://jupyter-protocol.readthedocs.io/en/latest/messaging.html#execution-results
+
+	It's run in multiple phases, as laid out by the code blocks.
 	"""
 	
 	execute_silently = message.content.silent
 	store_history = message.content.store_history
 	
+	# Note that while `cell_id` is available, it's unused for now. Cells in the kernel
+	# manager would need to be able to take advantage of that. Originally I had hoped
+	# to use the cell's UUID to hotlink to the specific cell in the stack trace, adding
+	# a hyperlink for faster stacktrace reading. But... they're not bookmarked in the
+	# Jupyter client v_v.
 	cell_id = message.metadata.cellId
 	
 	# blank code and silent by convention means the client wants to know the current execution count

@@ -1,6 +1,12 @@
 """
 	Execution history lookup
 	
+	TODO: history lookup.
+
+	Note that the IPython-style In[x] and Out[x] variables are available,
+	so there's not a very strong need for this yet. Add that kernel.session
+	has a full record of everything it has run, and this is a low priority
+	feature.
 """
 
 logger = shared.tools.jupyter.logging.Logger()

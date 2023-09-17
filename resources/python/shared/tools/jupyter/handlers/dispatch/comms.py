@@ -1,3 +1,11 @@
+"""
+	Comms handlers
+
+	The request complement to the comms feature.
+
+	As of yet nothing uses them, but the mechanics are in play for extention
+	and implementation of specific Jupyter<==>Ignition interplay.
+"""
 logger = shared.tools.jupyter.logging.Logger()
 
 from shared.tools.jupyter.logging import log_message_event

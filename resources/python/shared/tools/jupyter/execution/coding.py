@@ -3,6 +3,13 @@
 	
 	The module name is probably bad, but 'inspection' and 'completion' aren't quite right.
 
+	Ed. note: I'll be honest. The code here is a hack. It's all like the very early versions
+	of the metatools pretty printer. Which are _still_ kinda hacky, but at least extremely
+	well tested and refined to usable. Code here is meant to sorta get the ball rolling.
+
+	More extensive and thorough code introspection will be added at a later date (likely after
+	the debugger and magic commands are added in). I'll try to avoid thirdparty backports,
+	but given how rich Python introspection tooling is, it might be worth it.
 """
 logger = shared.tools.jupyter.logging.Logger()
 

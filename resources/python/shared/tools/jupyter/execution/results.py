@@ -1,5 +1,16 @@
 """
 	Store the execution results for later reference.
+
+	To gain many of the cool extra bits of introspective functionality
+	that stuff like IPython can provide, execution is tracked and recorded.
+	When an execution context session is created, In[] and Out[] are added,
+	each of which are an instance of ResultHistory, wrapping the ExecutionContext
+	attributes in a little bit of syntactic sugar.
+
+	It also logs standard in/out/error. Objects sent to the displayhook, meaning
+	that results of statements can also be retrieved from past executions.
+	Of course, exceptions are also logged, making going back and checking past
+	or erased stacktraces easier.
 """
 logger = shared.tools.jupyter.logging.Logger()
 

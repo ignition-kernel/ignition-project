@@ -2,8 +2,10 @@
 	Handlers for the REST API
 	
 	This will normally run via WebDev, but if not installed this will
-	bootstrap a listener. And for designers it'll connect via this.
-	
+	bootstrap a listener, which is at least needed for Designer sessions.
+
+	The @rest decorator allows the same functions to work with both Python's
+	built-in webserver setup as well as the request object from WebDev.
 
 """
 logger = shared.tools.jupyter.logging.Logger()
@@ -34,6 +36,7 @@ assert set(WEBDEV_REQUEST_TRANSLATOR) >= AVAILABLE_REST_DETAILS
 
 
 def is_webdev_request(endpoint_info):
+	"""Is this that thing that comes from WebDev? Then yes. Otherwise prolly not????"""
 	try:
 		# very naive heuristic
 		if 'servletResponse' in endpoint_info:
@@ -48,6 +51,10 @@ def rest(function):
 	"""
 	Decorator. Simplifies and abstracts the calling convention so that it can be called
 	with either sidecar's class or with the WebDev response bits.
+
+	The core magic here is the PFA detecting the function's arguments and mapping that
+	to the singule request_info data (and/or overrides). That way, we don't see any
+	errors from passing in too few or too many arguments.
 	"""
 	pfa = PythonFunctionArguments(function)
 	assert AVAILABLE_REST_DETAILS >= set(pfa.args), '@rest decorator only covers these arguments: %r' % (AVAILABLE_DETAILS,)

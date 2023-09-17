@@ -1,3 +1,8 @@
+"""
+	Kernel messages
+
+	Handle the kernel info request(s). Critical for faster, saner startups.
+"""
 logger = shared.tools.jupyter.logging.Logger()
 
 from shared.tools.jupyter.logging import log_message_event

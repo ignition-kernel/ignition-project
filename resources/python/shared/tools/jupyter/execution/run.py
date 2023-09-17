@@ -4,29 +4,17 @@
 	TODO: apply debug on an AST level using DAP
 		https://microsoft.github.io/debug-adapter-protocol/
 
+	Note that this operates in a vaguely similar style to how the metatools pdb
+	implementation does SysHijack, intercepting the sys I/O hooks. Its use of
+	context management as well as operating in its own thread isolates these
+	shenanigans safely, though. It's reversible with more than enough layers of
+	safety to keep it in line.
 """
 logger = shared.tools.jupyter.logging.Logger()
 
 
-import ast
-
-
-
 from shared.tools.jupyter.catch import *
-
-
-## OK this is actually substantial overkill, especially since we're handling our own history
-#from shared.tools.debug.hijack import SysHijack, Thread
-#class StandardHijack(SysHijack):
-#	"""
-#	Capture (and likely release) system info reliably.	
-#	"""
-#	def __init__(self):
-#		thread = Thread.currentThread()
-#		super(StandardHijack, self).__init__(thread)
-
-
-
+import ast
 from StringIO import StringIO
 
 
@@ -35,15 +23,14 @@ DEFAULT_DISPLAYHOOK = shared.tools.pretty.displayhook
 
 
 
-
-
-
-
-
-
 class Executor(object):
 	"""
-	Capture the system st
+	Run code in a controlled, logged way.
+
+	An Executor wraps all the mechanics of running a chunk of code as well
+	as logging output as it runs (if any) and the resulting object(s) hooked
+	(if any). It also acts as the session information for the Python execution 
+	context, allowing for past commands (and their results, if any) to be retrieved.
 	"""
 	__slots__ = [
 		'captured_sys',
@@ -104,6 +91,10 @@ class Executor(object):
 	
 	
 	def isolated_displayhook(self, obj):
+		"""
+		Because Ignition is vaguely nonstandard in how the displayhook acts, 
+		this isolates and replicates that effect.
+		"""
 		if obj is not None:
 			self.display_objects.append(obj)
 		if self.continuous_interactive:
@@ -111,6 +102,9 @@ class Executor(object):
 	
 	
 	def execute(self, code):
+		"""
+		Run code.
+		"""
 		assert self.installed, 'Execution should be done only when context is managed.'
 		assert self.code is None, 'Executor should not be used more than once'
 		self.code = code
@@ -123,12 +117,31 @@ class Executor(object):
 			self._done = True
 	
 	def run_script(self):
+		"""
+		Run the code as a monolithic block.
+		"""
 		try:
 			exec(self.code, self.global_context, self.local_context)
 		except (Exception, JavaException) as error:
 			self.last_error = sys.exc_info()
 
 	def run_interactive(self):
+		"""
+		Run the code as though it was entered in an interactive prompt.
+
+		This is how most scripts seem to function in Ignition. It means that
+		statements will displayhook values intermittently and not just at the
+		end of the execution. 
+
+		So if multiple functions were to return an object, but they have no variable
+		to sink them into, then those objects to to the displayhook, and multiple
+		entries would show up in StdOut.
+
+		To replicate this effect, we'll ram the code through the ast parser, first.
+		This lets us execute code on a statement-by-statement basis, logging as each 
+		generate results (or not). It's not actually terrible since Python would do
+		most of that anyhow, we're just interrupting the process a smidge. -ish.
+		"""
 		try:
 			ast_tree = ast.parse(self.code)
 		except Exception as error:
@@ -185,6 +198,7 @@ class Executor(object):
 	
 	@property
 	def installed(self):
+		"""Property to identify if this is actively intercepting sys I/O hooks."""
 		return self._installed
 	
 	@property

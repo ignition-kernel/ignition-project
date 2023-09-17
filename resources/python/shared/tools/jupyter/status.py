@@ -1,6 +1,7 @@
 """
-	
-	NOTE: v5.0 all message indicate busy/idle, so only Kernel polling core will perform this
+	Let the Jupyter kernel manager know what the state of the kernel is.
+
+	NOTE: v5.0 all message indicate busy/idle, so only Kernel polling core will perform starting
 	
 	https://jupyter-protocol.readthedocs.io/en/latest/messaging.html#kernel-status
 """

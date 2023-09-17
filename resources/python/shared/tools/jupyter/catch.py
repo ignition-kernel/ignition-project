@@ -1,3 +1,8 @@
+"""
+	Error handling stuff goes here.
+"""
+
+
 logger = shared.tools.jupyter.logging.Logger()
 
 from java.lang import Exception as JavaException

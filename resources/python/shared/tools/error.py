@@ -1,6 +1,11 @@
 """
+    Make inspecting errors a bit easier.
 
+    When running long scripts or processes that shouldn't stop,
+    capturing an error and dumping it to logs is neater than
+    just horking the stacktrace up the stack and hoping for the best.
 
+    This simplifies and normalizes that process a bit.
 """
 
 import traceback, sys

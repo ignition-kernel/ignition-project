@@ -1,3 +1,16 @@
+"""
+	While the kernel has its own logging setup, this provides an out-of-band
+	way to get logs. For example, we need loggers for the modules themselves despite
+	them not running in the kernel object itself.
+
+	It also pre-tunes all these loggers to the DEFAULT_LOGGING_LEVEL here if they're
+	not Kernel loggers.
+
+	Every script module should start with the following:
+
+		logger = shared.tools.jupyter.logging.Logger()
+"""
+
 from functools import wraps, partial
 from shared.tools.logging import Logger
 

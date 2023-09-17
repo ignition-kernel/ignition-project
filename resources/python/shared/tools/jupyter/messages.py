@@ -9,6 +9,7 @@
 		with kernel.iopub_broadcast('status', message) as update:
 			update.content.execution_state = status
 
+	AdHocObjects are what let the content of the message get set in an arbitrary way.
 """
 logger = shared.tools.jupyter.logging.Logger()
 
@@ -79,7 +80,12 @@ class ContextManagedMessage(WireMessage):
 
 
 class KernelMessagingMixin(object):
+	"""
+	Consolidate the messaging bits for the kernel in one place.
 
+	First are the bits for sending messages, and then the message
+	handling bits.
+	"""
 	# SENDING
 	
 	def _new_message(self, msg_type, target_socket=None, origin_message=None, topic_broadcast=False):
@@ -102,9 +108,11 @@ class KernelMessagingMixin(object):
 			socket = target_socket,
 		)
 	
+	# most messages on IOPub will be broadcast based on the topic
 	def iopub_broadcast(self, msg_type, origin_message=None):
 		return self._new_message(msg_type, self.iopub_socket, origin_message, topic_broadcast=True)
 	
+	# ensure replies for messages are handled and sent back to the requester
 	def iopub_message(self, msg_type, origin_message=None):
 		return self._new_message(msg_type, self.iopub_socket, origin_message, topic_broadcast=False)
 	
@@ -120,6 +128,9 @@ class KernelMessagingMixin(object):
 	# RECIEVING
 	
 	def _handle_zmessage(self, role, socket):
+		"""
+		Consume a ZMQ message off the socket, if any, and then handle it based on the role.
+		"""
 		zMessage = ZMsg.recvMsg(socket, self.ZMQ_DONTWAIT)
 		if zMessage is not None:
 			message = WireMessage(zMessage, 
@@ -137,5 +148,10 @@ class KernelMessagingMixin(object):
 				declare_idle(self, message)
 
 	def _handle_zbytes(self, role, socket):
+		"""
+		Handle socket data as raw bytes.
+
+		This is only used by the heartbeat role.
+		"""
 		payload = socket.recv(self.ZMQ_DONTWAIT)
 		self[role + '_handler'](self, payload)

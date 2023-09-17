@@ -30,8 +30,12 @@ def sign(key, signature_scheme, entries):
 
 
 
-
 def serialize_dictionary(some_dict, assume_ad_hoc=False):
+	"""
+	Normalized object serialization for messages. 
+
+	This forces adhoc objects to use their interface for dumping contents.
+	"""
 	if assume_ad_hoc or isinstance(some_dict, AdHocObject):
 		if hasattr(some_dict, '_asdict'):
 			some_dict = some_dict._asdict()
@@ -43,6 +47,11 @@ def serialize_dictionary(some_dict, assume_ad_hoc=False):
 
 
 def deserialize_dictionary(some_string, make_ad_hoc=False):
+	"""
+	Normalized object loading.
+
+	Will return an AdHocObject if desired instead of a plain old dictionary.
+	"""
 	somejson = json.loads(some_string.decode('UTF-8'))
 	if make_ad_hoc:
 		return AdHocObject(somejson)
@@ -52,6 +61,18 @@ def deserialize_dictionary(some_string, make_ad_hoc=False):
 
 
 class WireMessage(object):
+	"""
+	The Wire Protocol, as a message object.
+
+	By default this uses the AdHocObject class to abstract and simplify setting values
+	in the message.
+
+	A wire protocol message is packed into a ZMQ message envelope. This class automatically
+	generates the needed headers, signatures, and other bits to make this work.
+
+	Note that this is merely the container for the message and has not active
+	components. That's in the ContextManagedMessage class.
+	"""
 	
 	_MESSAGE_SPLITTING_DELIMITER_KEY_BETWEEN_IDS_AND_MESSAGE_PROPER = bytes('<IDS|MSG>')
 	# note that in Jython the `bytes` part here is completely superfluous, but is technically
@@ -69,7 +90,11 @@ class WireMessage(object):
 				# initial value overrides, useful as kwargs
 				ids=None, header=None, parent_header=None, 
 				metadata=None, content=None, raw_data=None,
-			):		
+			):
+		"""
+		A WireMessage can be started off directly from the payload from a ZMQ message,
+		initialized with values, or some combination.
+		"""
 		if zMessage:
 			self.message_parts = []
 			id_delim_found = False
@@ -100,8 +125,10 @@ class WireMessage(object):
 		assert signature_scheme in hashlib.algorithms, 'Signature scheme is not in supported list: %r' % (hashlib.algorithms,)
 		self.signature_scheme = signature_scheme
 		
+		# parse and initialize what's been captured first.
 		self.parse()
 		
+		# apply overrides, if any.
 		if ids is not None:
 			self.ids = [identity for identity in ids]
 		if header is not None:
@@ -171,6 +198,9 @@ class WireMessage(object):
 	
 	
 	# serialization wrappers
+	# 
+	# these ensure that what goes in and out is a nice, convenient thing and not
+	# some binary nonsense that's a pain to deal with.
 	@property
 	def _serialized_header(self):
 		return serialize_dictionary(self.header, self.AD_HOC_INTERFACE)
@@ -216,7 +246,11 @@ class WireMessage(object):
 
 
 	def parse(self):
-		
+		"""
+		Call this to consume the set message parts and dole them into their
+		respective attributes.
+		"""
+		# initialize empty, though use an AdHocObject for interactive convenience.
 		if not self.message_parts:
 			self.ids = []
 			self.header         = self._attr_type_interface({})
@@ -233,6 +267,7 @@ class WireMessage(object):
 			if entry:
 				self.ids.append(entry)
 		
+		# validate the message parts
 		signature = self.message_parts[ix + 1]
 		assert signature == sign(self.key, self.signature_scheme,
 								 self.message_parts[ix + 2:]), (
@@ -261,6 +296,12 @@ class WireMessage(object):
 		zMessage.add(self._MESSAGE_SPLITTING_DELIMITER_KEY_BETWEEN_IDS_AND_MESSAGE_PROPER)	
 
 	def package(self):
+		"""
+		Create a ZMQ Message from the contents of this object.
+
+		This will pack the IDs, signature, header, and all the other bits so that it
+		is ready to send over the ZMQ wire.
+		"""
 		zMessage = ZMsg()
 		self._add_ids_to_zMessage(zMessage)
 		
@@ -277,6 +318,7 @@ class WireMessage(object):
 	
 	
 	def dump(self):
+		"""Conveniently hork the contents to a more easily used Python dict."""
 		return  {
 			'header': self.header,
 			'parent_header': self.parent_header,

@@ -1,6 +1,13 @@
 """
+	Heartbeat
 
+	Let Jupyter know we're still here.
 
+	Note that unlike any other role, this socket is used via
+	raw bytes and not in a ZMQ Message envelope.
+
+	Regardless, the heartbeat is "send back whatever you got"
+	so it doesn't matter terribly much what it says.
 """
 logger = shared.tools.jupyter.logging.Logger()
 

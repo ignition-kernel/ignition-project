@@ -1,5 +1,10 @@
 """
+	Shell
 
+	Jupyter Shell commands.
+
+	Note that these are mostly elaborated in the dispatch stuff.
+	Almost everything that makes the kernel work is via shell commands.
 
 """
 logger = shared.tools.jupyter.logging.Logger()

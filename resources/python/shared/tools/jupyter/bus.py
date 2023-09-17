@@ -1,6 +1,12 @@
 """
 	Funnel data into and out of Ignition
 
+	This is a placeholder for adding functionality for firehosing
+	data across ZMQ sockets into external Python libraries like 
+	Pandas or NumPy/SciPy.
+
+	It might end up being self-contained or maybe a special case
+	of kernel context.
 """
 
 

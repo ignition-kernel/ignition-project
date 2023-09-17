@@ -9,8 +9,20 @@ logger = shared.tools.jupyter.logging.Logger()
 
 
 class KernelCommMixin(object):
+	__slots__ = (
+		# custom message management
+		'comms', 'comm_targets',
+		)
 	
-	
+	def initialize_kernel(self, **init_kwargs):
+		# ready for comms
+		self.comms = {}
+		self.comm_targets = {}
+		
+		super(KernelCommMixin, self).initialize_kernel(**init_kwargs)
+
+
+
 	def open_comm(self, comm_id, target_name, data):
 		if comm_id not in self.comms:
 			comm = Comm(comm_id, target_name, data)

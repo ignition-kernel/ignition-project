@@ -1,4 +1,9 @@
+"""
+	Metadata for Jupyter
 
+	Possibly deprecated, or at least not used yet.
+	This is stuff that the protocol mentions it can use, but not obviously useful yet.
+"""
 
 
 
@@ -8,6 +13,9 @@ from shared.tools.net import default_ip
 
 
 def get_gateway_hyperlink(endpoint='web/status/sys.overview', force_ssl=False):
+	"""
+	TODO: make this work for Designer sessions too.
+	"""
 	context = getIgnitionContext()
 	
 	webServerConfig = context.getWebResourceManager().getWebServerManager().getConfig()

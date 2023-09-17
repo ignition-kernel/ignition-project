@@ -53,7 +53,9 @@ class CardiacArrest(RuntimeError): pass
 
 
 class SlotDefaultsMixin(object):
-
+	"""
+	Allows default values to be configured for all slots before initializing.
+	"""
 	_SLOT_DEFAULTS = {}
 	_SLOT_ALIAS_BRIDGE = {}
 
@@ -66,10 +68,8 @@ class SlotDefaultsMixin(object):
 									init_kwargs.get(self._SLOT_ALIAS_BRIDGE.get(slot, slot),
 									self._SLOT_DEFAULTS.get(slot, None))))
 			except Exception as error:
-				logger.error('Slot failed to get settings: %(slot)r')
 				raise error
 		super(SlotDefaultsMixin, self).__init__(*init_args, **init_kwargs)
-		logger.info('init complete...')
 
 
 
@@ -79,7 +79,29 @@ class JupyterKernelCore(
 	SlotDefaultsMixin,	
 	Context,
 	):
+	"""
+	The Kernel.
+
+	For context and thread management bits, see the Context class definition.
+	For message handling, see KernelMessagingMixin.
+	For Comms management, see KernelCommMixin.
+
+	This class sets the values available to the kernel itself as well as all the 
+	data shared between the context's roles.
+
+	Generally, there's two roles to track:
+	 - execution performs the work revolving around the Python code execution.
+	   It tracks the shell commands, iopub updates, and consuming stdin socket data.
+	 - process performs the work on the kernel itself.
+	   Generally that means interrupting the execution thread when needed and covers
+	   the control and heartbeat roles.
+
+	This class does not directly override and complete the Context methods needed.
+	That's more cleanly indicated by the JupyterKernel class.
+
 	
+
+	"""
 	_PREP_METHODS = ('init', 'launch', 'tear_down')
 
 	__slots__ = (
@@ -116,8 +138,6 @@ class JupyterKernelCore(
 		'process_zpoller', 'execution_zpoller',
 		'zpoll_timeout_ms', 
 		
-		# custom message management
-		'comms', 'comm_targets',
 		
 		# convenience functions for auto-resolving so stuff can't get mixed up
 		'loggers',
@@ -222,17 +242,32 @@ class JupyterKernelCore(
 
 
 	def initialize_kernel(self, **init_kwargs):
+		"""
+		Set up all the things the kernel needs to get started without actually starting.
+		"""
 		
 		self.last_heartbeat = datetime.now()
 		
+		# set up for general use, but really, traps shouldn't be in use anywhere.
+		# just a handy bucket
 		self.traps = {}
-			
-		self._pre_init()
 		
+		# run any user-defined pre-init setup
+		self._pre_init()
+
+		# allow base classes to initialize their own bits
+		super(KernelCommMixin, self).initialize_kernel(**init_kwargs)
+
 		# the context always has an identifier
 		if self.kernel_id is None:
 			self.kernel_id = random_id()
 
+		# used for validating and signing messages
+		# NOTE: .key does NOT encrypt - it's merely a shared key with the Jupyter kernel
+		#       manager so that both the kernel and Jupyter can trust the message contents
+		#       have not been tampered with.
+		# The key is typically given over a secure line (the kernel provisioner shares it,
+		#       so for trust, be sure to share over a secure line like HTTPS!)
 		if self.key is None:
 			self.key = str(uuid4())
 		assert self.key not in JupyterKernel, "Kernel %(kernel_id)s already started!" % self
@@ -240,15 +275,13 @@ class JupyterKernelCore(
 		if self.username is None:
 			self.username = SystemUtils.USER_NAME
 		
-		# ready for comms
-		self.comms = {}
-		self.comm_targets = {}
-		
+		# run any user-defined post-init cleanup
 		self._post_init()
 
 
 	@property
 	def overwatch_thread(self):
+		# I called the context thread "overwatch" and never really stopped. So.
 		if self._context_threads:
 			assert len(self._context_threads) == 1, 'Only one overwatch thread must be active at a time!'
 			return list(self._context_threads)[0]
@@ -265,6 +298,10 @@ class JupyterKernelCore(
 
 
 	def check_pulse(self):
+		# NOTE: this doesn't necessarily kill the kernel, it just lets the kernel
+		# know that Jupyter is no longer in contact with it!
+		# Under normal operations this would likely just leave it running and reconnect
+		# once Jupyter recovers or comes back online.
 		if self.cardiac_arrest_timeout:
 			if self.last_heartbeat < (datetime.now() - self.cardiac_arrest_timeout):
 				self.logger.warn('Cardiac arrest!')
@@ -272,18 +309,26 @@ class JupyterKernelCore(
 
 
 	def tear_down(self):
+		"""
+		Disassemble the kernel. Leaves it as an object that could, technically, re-launch.
+		"""
 		try:
+			# run any user-defined pre-tear down work
 			self._pre_tear_down()
 			
 			self.logger.info('Tearing down kernel %(kernel_id)s...' % self)
 			
+			# clear out the Python execution context
 			if self.session:
 				self.session.destroy()
 			
+			# if the ZContext is already torn down, then we're done
 			if self.zcontext.isEmpty() and self.zcontext.isClosed():
 				self.logger.warn('ZContext for already emptied and closed')
 				return
 			
+			# JeroMQ will tear down the ZContext fairly reliably,
+			# but I think it's polite to clean up what we can ourselves
 			try:
 				self.logger.info('Closing poller...')
 				self.zpoller.destroy()
@@ -295,25 +340,37 @@ class JupyterKernelCore(
 				for attr in [attr for attr in self.__slots__ if attr.endswith('_port') or attr.endswith('_socket')]:
 					setattr(self, attr, None)
 			
+			# regardless of previous success, leave the rest to JeroMQ to clean up
 			finally:
 				self.logger.debug('Destroying zcontext...')
 				self.zcontext.destroy()
 			
 				self.logger.info('Done. Good-bye!')
+
 		finally:
+			# regardless of the success breaking down the kernel, 
+			# run any user-defined post-tear down work
 			self._post_tear_down()
 
 
 
 	def launch_kernel(self):
+		"""
+		Bring the kernel online.
+
+		"""
+		
+		# run any user-defined pre-launch methods
 		self._pre_launch()
 		
 		if self.ACTIVE_HANDLER_RELOAD:
 			self.reload_handlers()
-	
+
+		# initialize a zcontext that will handle all the ZMQ sockets, polling, and messages
 		assert not self.is_launched, "ZContext already launched! HCF >_<"
 		self.zcontext = ZContext()
 		
+		# create and bind the ZMQ sockets we'll be using
 		for role in self._JUPYTER_ROLES:
 			# create sockets
 			socket = self.zcontext.createSocket(self.ZMQ_ROLE_SOCKET_TYPES[role])
@@ -329,6 +386,7 @@ class JupyterKernelCore(
 			   self.bind_selected_port(self[role + '_socket'], self[role + '_port'])
 			self.logger.trace('%-16s on port %d' % (role, self[role + '_port']))
 		
+		# broadcast that the kernel is coming online now that we have sockets for it
 		declare_starting(self)
 
 		# control and heartbeat have a dedicated poller to ensure kernel can't be blocked
@@ -336,28 +394,32 @@ class JupyterKernelCore(
 		for socket in self.process_sockets:
 			self.process_zpoller.register(socket, ZPoller.POLLIN)
 
-		# shell, iopub, and stdin are bundled for the actual remote execution
+		# shell, iopub, and stdin are bundled for the actual remote code execution
 		self.execution_zpoller = ZPoller(self.zcontext)
 		for socket in self.execution_sockets:
 			self.execution_zpoller.register(socket, ZPoller.POLLIN)
 
+		# create an execution context for us to run code inside
 		self.new_execution_session()
 
 		# start the zmq socket polling
 		self.poll_process()
 		self.poll_execution()
 		
+		# give everything a moment to settle and come online
 		sleep(0.25)
 		
+		# run any user-defined post-launch methods
 		self._post_launch()
 		
+		# announce that startup is complete
 		declare_idle(self)
 
 
 
 	def new_execution_session(self):
 		self.session = ExecutionContext(self)
-		try:
+		try: # signal to the kernel provisioner that a new session is made
 			self.heartbeat_socket.send('restart')
 		except:
 			pass # maybe not set up yet
@@ -376,6 +438,7 @@ class JupyterKernelCore(
 
 	@Context.poll('process')
 	def poll_process(self):
+		"""Called by the Context periodically to drain messages"""
 		with ZmqErrorCatcher(self) as catcher:
 			self.process_zpoller.poll(self.zpoll_timeout_ms)        
 			for role, socket in zip(self._PROCESS_ROLES, self.process_sockets):
@@ -389,6 +452,7 @@ class JupyterKernelCore(
 
 	@Context.poll('execution')
 	def poll_execution(self):
+		"""Called by the Context periodically to drain messages"""
 		with ZmqErrorCatcher(self) as catcher:
 			self.execution_zpoller.poll(self.zpoll_timeout_ms)        
 			for role, socket in zip(self._EXECUTION_ROLES, self.execution_sockets):
@@ -397,6 +461,7 @@ class JupyterKernelCore(
 
 
 	def reload_handlers(self):
+		"""Allow for dynamic patching of handlers even while a kernel is running."""
 		for role in self._JUPYTER_ROLES:
 			self[role + '_handler'] = reload_function(self[role + '_handler'])
 	
@@ -409,11 +474,14 @@ class JupyterKernelCore(
 	
 	@property
 	def is_launched(self):
+		"""If there's an active ZContext, we're live!"""
 		return not (self.zcontext is None or self.zcontext.isClosed())
 	
 	@property
 	def is_interrupted(self):
-		self.check_pulse()
+		# if the not interrupted, check the pulse and perhaps suggest it
+		if not self.interrupted:
+			self.check_pulse()
 		return self.interrupted
 	
 	
@@ -435,6 +503,10 @@ class JupyterKernelCore(
 	
 	@property
 	def connection_info(self):
+		"""
+		Returned to the kernel provisioner for the kernel manager.
+		Used by Jupyter to verify it's connection details were respected.
+		"""
 		return {
 			'transport': self.transport,
 			'ip': self.ip,
@@ -477,7 +549,11 @@ class JupyterKernelCore(
 class JupyterKernel(
 	JupyterKernelCore,
 	):
+	"""
+	The Kernel.
 
+	Connects the JupyterKernelCore to the Context methods.
+	"""
 	_INITIAL_LOGGING_LEVEL = DEFAULT_LOGGING_LEVEL
 	_LOGGER_CLASS = Logger
 	
@@ -487,10 +563,6 @@ class JupyterKernel(
 	
 	_EVENT_LOOP_DELAY = 0.01 # seconds
 	_THREAD_DEATH_LOOP_WAIT = 0.1 # seconds
-
-#	def __init__(self, kernel_id=None, *args, **kwargs):
-#		kwargs['identifier'] = kernel_id
-#		super(JupyterKernel, self).__init__(*args, **kwargs)
 
 
 	def initialize_context(self, *init_args, **init_kwargs):
@@ -515,6 +587,7 @@ class JupyterKernel(
 
 
 def spawn_kernel(**kernel_init_kwargs):
+	"""A helper function to show how to launch a kernel."""
 	if not kernel_init_kwargs:
 		kernel_init_kwargs['kernel_id']= random_id()
 	

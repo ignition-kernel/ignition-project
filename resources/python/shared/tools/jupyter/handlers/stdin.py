@@ -1,6 +1,7 @@
 """
+	StdIn
 
-
+	Jupyter providing a kernel with input.
 """
 logger = shared.tools.jupyter.logging.Logger()
 

@@ -53,10 +53,13 @@ def shutdown_request(kernel, message):
 def interrupt_request(kernel, message):
 	
 	with kernel.control_message('interrupt_reply', message) as reply:
-		# TODO: make this not a NOP :D :D :D
+		
+		interrupt_retries = 5
+		for i in range(interrupt_retries):
+			pass # not implemented yet
+			# kernel.session.interrupt_execution()
+		
 		reply.content.status = 'ok'
-
-
 
 
 

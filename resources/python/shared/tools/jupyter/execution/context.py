@@ -13,6 +13,7 @@ from shared.tools.jupyter.execution.priming import ScopeMixin
 
 from uuid import uuid4
 from org.python.core import Py
+from java.lang import Thread
 
 
 
@@ -28,6 +29,8 @@ class ExecutionContext(ScopeMixin):
 	def __init__(self, kernel, locals_dict=None, globals_dict=None, *args, **kwargs):
 		self.kernel = kernel
 		self.id = str(uuid4())
+		
+		self.thread = Thread.currentThread()
 		
 		self.execution_count = 0
 		

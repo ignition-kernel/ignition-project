@@ -29,7 +29,12 @@ class ZmqErrorCatcher(object):
 	"""
 	Handy context manager to wrap where ZMQ socket errors might be thrown.
 	
-	Catches and logs them.	
+	Catches and logs them.
+	
+	When ZMQ crashes and burns - say when the thread is interrupted - this will
+	consume ZMQ panicing and sqelch the expected errors. This will only happen
+	when the kernel context is tearing itself down (basically), so we'll be using
+	zcontext.destroy anyhow, which is more thorough anyhow.
 	"""
 	
 	def __init__(self, context):
@@ -50,10 +55,10 @@ class ZmqErrorCatcher(object):
 		except ZMQException as zmq_error:
 			self.logger.error('ZMQ Handler error %(zmq_error)r')
 		except JavaNioChannelsClosedSelectorException as channel_closed_error:
-			pass
+			return True # squelch
 		except JavaException as java_interruption_sideeffect:
 			if 'java.nio.channels.ClosedChannelException' in repr(java_interruption_sideeffect):
-				pass # gawd just stop throwing this when murdered!
+				return True # squelch # gawd just stop throwing this when murdered!
 			else:
 				raise java_interruption_sideeffect
 		finally:

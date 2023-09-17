@@ -217,13 +217,31 @@ class JarClassLoader(object):
 				self.packages[package_path].add(class_name)
 				
 		# grind over classes
-		for class_path in self.class_list:
-			self.class_cache[class_path] = self.urlLoader.loadClass(class_path)
+		self.load_in_all_classes()
 		
-		self.inject_sys()
+		self.inject_packages_into_sys()
+		
+		self.assign_classes_to_modules()
+
+
+	def load_in_all_classes(self):
+		for class_path in self.class_list:
+			self.class_cache[class_path] = self.urlLoader.loadClass(class_path)	
 	
 	
-	def inject_sys(self):
+	def assign_classes_to_modules(self):
+		# add classes to packages
+		for package_path, class_names in self.packages.items():
+			package_module = sys.modules[package_path]
+			assert package_module, 'Classes must load into a package, or they can not be imported. Sorta.'
+			for class_name in class_names:
+				if getattr(sys.modules[package_path], class_name, None) is None:
+					class_path = package_path + '.' + class_name
+					loadedClass = self.class_cache[class_path]
+					setattr(sys.modules[package_path], class_name, loadedClass)
+	
+	
+	def inject_packages_into_sys(self):
 		for package_path in sorted(self.packages):
 			module = self.create_empty_module(package_path)
 			
@@ -233,7 +251,7 @@ class JarClassLoader(object):
 				if parent_package_path not in sys.modules:
 					sys.modules[parent_package_path] = self.create_empty_module(parent_package_path)
 				parent = sys.modules[parent_package_path]
-				if type(parent) == "<type 'module'>":
+				if str(type(parent)) == "<type 'module'>":
 					setattr(parent, package_path.rpartition('.')[2], module)
 				
 				for class_name in self.packages[package_path]:

@@ -109,6 +109,7 @@ class JupyterKernelCore(
 		'kernel_id',                   # lookup key for reference in Ignition
 		'signature_scheme', 'key',     # id/key used by Jupyter (likely same as kernel_id)
 		'transport', 'ip', 'zcontext', 
+		'_server_public_key', '_server_secret_key', # for encrypting sockets
 		
 		'session', 'username',
 		'jupyter_session',
@@ -275,7 +276,10 @@ class JupyterKernelCore(
 		if self.username is None:
 			self.username = SystemUtils.USER_NAME
 		
-		# run any user-defined post-init cleanup
+		# set up encryption
+		curve = Curve()
+		self._server_public_key, self._server_secret_key = curve.keypairZ85()
+		
 		self._post_init()
 
 
@@ -374,6 +378,11 @@ class JupyterKernelCore(
 		for role in self._JUPYTER_ROLES:
 			# create sockets
 			socket = self.zcontext.createSocket(self.ZMQ_ROLE_SOCKET_TYPES[role])
+			
+			# configure for encryption
+			socket.setCurveServer(True)
+			socket.setCurvePublicKey(self._server_public_key)
+			socket.setCurveSecretKey(self._server_secret_key)
 			
 			self[role + '_socket'] = socket
 			
@@ -521,6 +530,8 @@ class JupyterKernelCore(
 			'stdin_port':   self.stdin_port,
 			'control_port': self.control_port,
 			'hb_port':      self.hb_port,
+			
+			'server_public_key': self._server_public_key,
 		}
 	
 	

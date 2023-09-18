@@ -58,8 +58,8 @@ def interrupt_request(kernel, message):
 		
 		# WIP - restart kernel to stop execution v_v -ARG
 		#interdict_and_interrupt(kernel.session)
-			pass # not implemented yet
-			# kernel.session.interrupt_execution()
+		#	pass # not implemented yet
+		#	# kernel.session.interrupt_execution()
 		
 		reply.content.status = 'ok'
 

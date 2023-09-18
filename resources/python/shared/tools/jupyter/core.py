@@ -16,6 +16,7 @@ import json
 from time import sleep
 import re
 import sys
+import itertools
 
 from org.apache.commons.lang3 import SystemUtils
 
@@ -331,54 +332,54 @@ class JupyterKernelCore(
 
 	def tear_down(self):
 		try: # yes. I feel bad for doing this. 
-			try: # but I really want to make sure that the post happens _strictly_ post
-				# AND I want to make sure that the zcontext properly is closed up
-				self._pre_tear_down()
-				
-				self.logger.info('Tearing down kernel %(kernel_id)s...' % self)
-				
-				self.logger.debug('Stopping polling...')
-				self._stop_role('execution')
-				self._stop_role('process')
-				sleep((self.zpoll_timeout_ms/1000.0) *4)
-				self.logger.debug('polling roles should now be stopped')
-				
-				super(JupyterKernelCore, self).tear_down()
-				
-				if self.session:
-					self.session.destroy()
-				
+			try: # but I really want to make sure that the post_tear_down happens _strictly_ post
+				try: # AND I want to make sure that the zcontext properly is closed up
+					self._pre_tear_down()
+					
+					self.logger.info('Tearing down kernel %(kernel_id)s...' % self)
+					
+					self.logger.debug('Stopping polling...')
+					self._stop_role('execution')
+					self._stop_role('process')
+					sleep((self.zpoll_timeout_ms/1000.0) *4)
+					self.logger.debug('polling roles should now be stopped')
+					
+					super(JupyterKernelCore, self).tear_down()
+					
+					if self.session:
+						self.session.destroy()
+					
+				finally:
+					self._post_tear_down()
+	
+			# make absolutely sure the zcontext is cleaned up
 			finally:
-				self._post_tear_down()
-
-		# make absolutely sure the zcontext is cleaned up
-		finally:
-			self.logger.debug('Tearing down ZContext...')
-			if self.zcontext.isEmpty() and self.zcontext.isClosed():
-				self.logger.warn('ZContext for already emptied and closed')
-				return
-			
-			try:
-				self.logger.debug('Closing pollers...')
-				execution_zpoller = self.execution_zpoller
-				self.execution_zpoller = None
-				execution_zpoller.destroy()
+				self.logger.debug('Tearing down ZContext...')
+				if self.zcontext.isEmpty() and self.zcontext.isClosed():
+					self.logger.warn('ZContext for already emptied and closed')
+					return
 				
-				process_zpoller = self.process_zpoller
-				self.process_zpoller = None
-				process_zpoller.destroy()
-				
-				self.logger.debug('Destroying sockets...')
-				for socket in self.zcontext.getSockets():
-					self.zcontext.destroySocket(socket)
-				
-				for attr in [attr for attr in self.__slots__ if attr.endswith('_port') or attr.endswith('_socket')]:
-					setattr(self, attr, None)
-			finally:
-				self.logger.debug('Destroying zcontext...')
-				self.zcontext.destroy()
-				sleep(1.5) # give everything a moment to settle, close, finallize, etc.
-				self.logger.info('Done. Good-bye!')
+				try:
+					self.logger.debug('Closing pollers...')
+					execution_zpoller = self.execution_zpoller
+					self.execution_zpoller = None
+					execution_zpoller.destroy()
+					
+					process_zpoller = self.process_zpoller
+					self.process_zpoller = None
+					process_zpoller.destroy()
+					
+					self.logger.debug('Destroying sockets...')
+					for socket in self.zcontext.getSockets():
+						self.zcontext.destroySocket(socket)
+					
+					for attr in [attr for attr in self.__slots__ if attr.endswith('_port') or attr.endswith('_socket')]:
+						setattr(self, attr, None)
+				finally:
+					self.logger.debug('Destroying zcontext...')
+					self.zcontext.destroy()
+					sleep(1.5) # give everything a moment to settle, close, finallize, etc.
+					self.logger.info('Done. Good-bye!')
 
 		finally:
 			# regardless of the success breaking down the kernel, 

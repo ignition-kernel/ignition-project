@@ -1,5 +1,6 @@
 from shared.tools.thread import async
 from shared.tools.global import ExtraGlobal
+from shared.tools.error import formatted_traceback
 
 import BaseHTTPServer
 from cgi import escape
@@ -20,7 +21,16 @@ def check_basic_authentication(authorization_header, user_source=None):
 	assert authorization_header.startswith('Basic ')
 	auth = base64.b64decode(authorization_header[6:])
 	username, _, password = auth.partition(':')
-	return system.security.validateUser(username, password, user_source)
+	if user_source is None:
+		# if none is given, try each
+		for user_source in system.user.getUserSources():
+			if system.security.validateUser(username, password, user_source.getName()):
+				return True
+		else:
+			return False
+		
+	else:
+		return system.security.validateUser(username, password, user_source)
 
 
 
@@ -28,7 +38,10 @@ class SimpleServer(BaseHTTPServer.HTTPServer):
 	allow_reuse_address = True
 
 	def handle_error(self, request, client_address):
-		system.util.getLogger('Sidecar').error('Error with %r: %r to [%r]' %(self, request, client_address))
+		exc_type, exc_val, exc_tb = sys.exc_info()
+		system.util.getLogger('Sidecar').error('Error with %r: %r to [%r]\n%s' %(
+			self, request, client_address, formatted_traceback(exc_val, exc_tb),
+		))
 
 
 
@@ -61,10 +74,15 @@ class SimpleREST(BaseHTTPServer.BaseHTTPRequestHandler):
 		'text/plain': lambda x: x,
 		'application/json': system.util.jsonDecode,
 		'text/json': system.util.jsonDecode,
-		'application/yaml': shared.data.yaml.core.safe_load,
-		'text/yaml': shared.data.yaml.core.safe_load,
 		'/form-data': urlparse.parse_qs,
 	}
+	
+	try:
+		_PAYLOAD_CONVERTERS['application/yaml'] = shared.data.yaml.core.safe_load
+		_PAYLOAD_CONVERTERS['text/yaml'] = shared.data.yaml.core.safe_load
+	except AttributeError:
+		pass # yaml unavailable
+
 
 	def drain_payload(self):
 		try:
@@ -247,7 +265,7 @@ try:
 		
 		# context settings
 		_EVENT_LOOP_DELAY = 0.01 # seconds
-		_INITIAL_LOGGING_LEVEL = 'info'
+		_INITIAL_LOGGING_LEVEL = 'debug'
 		
 		
 		def initialize_context(self, http_handler, port=None, hostname='localhost'):

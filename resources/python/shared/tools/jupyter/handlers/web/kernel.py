@@ -105,7 +105,7 @@ def doDelete(path, payload):
 		scrammed_kernels = [
 			kernel.kernel_id 
 			for kernel 
-			in shared.tools.jupyter.core.JupyterKernel
+			in JupyterKernel
 		]
 		JupyterKernel.SCRAM_ALL()
 		return {'scrammed': scrammed_kernels}

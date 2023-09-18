@@ -87,9 +87,14 @@ from shared.tools.thread import getThreadFrame
 class NameNotFoundError(NameError): pass # maybe should be a KeyError?
 class ObjectNotFoundError(ValueError): pass
 class TypeNotFoundError(ValueError): pass
-	
 
-def get_from_thread(thread, object_type, get_all_instances=False):
+def type_pedigree_signature(object_type):
+	return ', '.join(tuple(
+		repr(base_class) for base_class in object_type.__mro__
+	))
+
+
+def get_from_thread(thread, object_type, get_all_instances=False, heuristic_match=True):
 	"""
 	Get object from the thread, searching from the root frame up.
 	
@@ -98,6 +103,9 @@ def get_from_thread(thread, object_type, get_all_instances=False):
 
 	On failure to find anything it throws a NotFoundError.
 	"""
+	type_name = repr(object_type)
+	type_pedigree = type_pedigree_signature(object_type) if heuristic_match else None
+	
 	instances = []
 	frame = getThreadFrame(thread)
 	stack = [frame]
@@ -112,6 +120,19 @@ def get_from_thread(thread, object_type, get_all_instances=False):
 						instances.append(value)
 					else:
 						return value
+				# if classes got recompiled or reloaded - or threads simply started
+				# with different initial loadings, then we'll need to loosen our
+				# definition of "isinstance" since an object may very well simply
+				# be an instance of the same class from a parallel universe
+				elif heuristic_match:
+					# quick check
+					if type_name == repr(type(value)):
+						# more thorough pedigree check
+						if type_pedigree == type_pedigree_signature(type(value)):
+							if get_all_instances:
+								instances.append(value)
+							else:
+								return value
 			if instances:
 				return instances
 		else:

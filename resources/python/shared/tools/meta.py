@@ -126,6 +126,26 @@ def get_module_path(depth=1):
 	"""
 	return sys._getframe(depth).f_code.co_filename[8:-1]
 
+def get_new_class_module_path(depth=1):
+	"""Return the module path in the calling context's scope; use during class definition.
+	
+	If added by a metaclass, walks up the stack until the frame that preceded
+	a metaclass' __new__.
+	
+	Returns something like `shared.tools.meta` (if it were called in this module)
+	"""
+	stack = []
+	frame = sys._getframe()
+	last_new_i = 0
+	while frame:
+		stack.append(frame)
+		if frame.f_code.co_name == '__new__':
+			last_new_i = len(stack) - 1
+		frame = frame.f_back
+	return stack[last_new_i+1].f_code.co_filename[8:-1]
+
+
+
 def currentStackDepth(maxDepth=100):
 	"""Returns the calling function's stack depth.
 	The easiest way to do this is to simply scan the stack

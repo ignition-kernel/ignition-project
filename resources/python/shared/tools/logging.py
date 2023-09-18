@@ -145,14 +145,22 @@ class ConsoleLogger(BaseLogger):
 	
 	_DEFAULT_FORMAT = _DEFAULT_PRETTY_FORMAT
 	
-	def __init__(self, loggerName=None, prefix=None, suffix=None, format_string=None, time_format=None):
+	_logLevels = [None, 'trace', 'debug', 'info', 'warn', 'error', 'log']
+	
+	def __init__(self, loggerName=None, prefix=None, suffix=None, format_string=None, time_format=None, filter_level=None):
 		self.loggerName = loggerName
 		self.prefix = prefix
 		self.suffix = suffix
 		self._format_string = format_string or self._DEFAULT_FORMAT
 		self._time_format = time_format or self._TIME_FORMAT
+		self._filter_level = filter_level
 	
 	def _log(self, level, *args, **kwargs):
+		# don't log if a filter is set and we're below it
+		if (self._filter_level in self._logLevels and level in self._logLevels):
+			if self._logLevels.index(self._filter_level) > self._logLevels.index(level):
+				return
+		    
 		message = self._generateMessage(*args, **kwargs)
 		print self._format_string.format(** {
 			'timestamp': datetime.now().strftime(self._time_format),
@@ -381,7 +389,7 @@ class Logger(BaseLogger):
 			self.loggerName = loggerName or 'Logger'
 		
 		if self._isScriptConsole():
-			self.logger = ConsoleLogger(self.loggerName, self.prefix, self.suffix)
+			self.logger = ConsoleLogger(self.loggerName, self.prefix, self.suffix, filter_level=self._logging_level)
 		else:
 			self._set_ignition_logger()
 

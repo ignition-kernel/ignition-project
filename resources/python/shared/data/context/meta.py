@@ -22,7 +22,7 @@ import re
 
 
 class MetaContext(ReorderedInitArgs, type):
-	__module__ = shared.tools.meta.get_module_path(1)
+	__module__ = shared.tools.meta.get_new_class_module_path()
 	
 	# set to some dict-like thing that returns based on [identifier] or the slice [identifier:class_name]
 	_CONTEXT_CACHE = None # ExtraGlobal (scoped to class), list/tuple, or a dict
@@ -34,6 +34,8 @@ class MetaContext(ReorderedInitArgs, type):
 	
 
 	def __new__(metacls, class_name, class_bases, class_configuration):
+		class_configuration['__module__'] = shared.tools.meta.get_new_class_module_path()
+	
 		if CONTEXT_USES_SLOTS:
 			# merge slots from subclasses
 			slots = set(class_configuration.get('__slots__', tuple()))

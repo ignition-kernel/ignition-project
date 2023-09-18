@@ -330,18 +330,19 @@ class JupyterKernelCore(
 
 
 	def tear_down(self):
-		"""
-		Disassemble the kernel. Leaves it as an object that could, technically, re-launch.
-		try:
-			try:
+		try: # yes. I feel bad for doing this. 
+			try: # but I really want to make sure that the post happens _strictly_ post
+				# AND I want to make sure that the zcontext properly is closed up
 				self._pre_tear_down()
 				
 				self.logger.info('Tearing down kernel %(kernel_id)s...' % self)
 				
+				self.logger.debug('Stopping polling...')
 				self._stop_role('execution')
 				self._stop_role('process')
 				sleep((self.zpoll_timeout_ms/1000.0) *4)
-	
+				self.logger.debug('polling roles should now be stopped')
+				
 				super(JupyterKernelCore, self).tear_down()
 				
 				if self.session:

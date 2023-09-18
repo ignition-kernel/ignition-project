@@ -76,7 +76,10 @@ def doDelete(path, payload):
 	"""Scram kernels"""
 	kernel_id = extract_kernel_id(path)
 	
-	signum = payload.get('signal')
+	if payload:
+		signum = payload['signal']
+	else:
+		signum = None
 
 	try:
 		if kernel_id and signum is not None:

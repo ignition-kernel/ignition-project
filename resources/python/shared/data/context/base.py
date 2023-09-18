@@ -13,7 +13,7 @@ class ContextManagementForContexts(object):
 	And yes. The class name is terrible. Shame about how jargon overlaps.
 	But it's just a mixin and I wanted to have it organized and separate.    
 	"""
-	__module__ = shared.tools.meta.get_module_path(1)
+	__module__ = shared.tools.meta.get_new_class_module_path()
 
 	def __init__(self, *args, **kwargs):
 		self.initialize_context(*args, **kwargs)

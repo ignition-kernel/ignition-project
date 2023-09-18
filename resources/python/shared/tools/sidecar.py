@@ -273,6 +273,16 @@ try:
 		def poll_context(self):
 			pass
 		
+		def finish_context(self):
+			self.stop_server()
+	
+		def crash_context(self):
+			self.stop_server()
+			
+		def stop_server(self):
+			self.httpd.server_close()
+			self._release_port()
+		
 		@Context.poll('requests')
 		def handle_requests(self):
 			self.httpd.handle_request()
@@ -298,7 +308,7 @@ try:
 			self.port = port
 		
 		def _release_port(self):
-			self.PORTS_IN_USE.remove(port)
+			self.PORTS_IN_USE.remove(self.port)
 			
 	
 		def is_port_valid(self, port):

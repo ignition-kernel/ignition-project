@@ -74,8 +74,8 @@ class SlotDefaultsMixin(object):
 		for slot in self.__slots__:
 			try:
 				setattr(self, slot, init_kwargs.get(slot, 
-									init_kwargs.get(self._SLOT_ALIAS_BRIDGE.get(slot, slot),
-									self._SLOT_DEFAULTS.get(slot, None))))
+									init_kwargs.get(slot_aliases.get(slot, slot),
+									slot_defaults.get(slot, None))))
 			except Exception as error:
 				raise error
 		super(SlotDefaultsMixin, self).__init__(*init_args, **init_kwargs)
@@ -327,41 +327,51 @@ class JupyterKernelCore(
 	def tear_down(self):
 		"""
 		Disassemble the kernel. Leaves it as an object that could, technically, re-launch.
-		"""
 		try:
-			# run any user-defined pre-tear down work
-			self._pre_tear_down()
-			
-			self.logger.info('Tearing down kernel %(kernel_id)s...' % self)
-			
-			# clear out the Python execution context
-			if self.session:
-				self.session.destroy()
-			
-			# if the ZContext is already torn down, then we're done
+			try:
+				self._pre_tear_down()
+				
+				self.logger.info('Tearing down kernel %(kernel_id)s...' % self)
+				
+				self._stop_role('execution')
+				self._stop_role('process')
+				sleep((self.zpoll_timeout_ms/1000.0) *4)
+	
+				super(JupyterKernelCore, self).tear_down()
+				
+				if self.session:
+					self.session.destroy()
+				
+			finally:
+				self._post_tear_down()
+
+		# make absolutely sure the zcontext is cleaned up
+		finally:
+			self.logger.debug('Tearing down ZContext...')
 			if self.zcontext.isEmpty() and self.zcontext.isClosed():
 				self.logger.warn('ZContext for already emptied and closed')
 				return
 			
-			# JeroMQ will tear down the ZContext fairly reliably,
-			# but I think it's polite to clean up what we can ourselves
 			try:
-				self.logger.info('Closing poller...')
-				self.zpoller.destroy()
+				self.logger.debug('Closing pollers...')
+				execution_zpoller = self.execution_zpoller
+				self.execution_zpoller = None
+				execution_zpoller.destroy()
 				
-				self.logger.info('Destroying sockets...')
+				process_zpoller = self.process_zpoller
+				self.process_zpoller = None
+				process_zpoller.destroy()
+				
+				self.logger.debug('Destroying sockets...')
 				for socket in self.zcontext.getSockets():
 					self.zcontext.destroySocket(socket)
 				
 				for attr in [attr for attr in self.__slots__ if attr.endswith('_port') or attr.endswith('_socket')]:
 					setattr(self, attr, None)
-			
-				super(JupyterKernelCore, self).tear_down()
-			
 			finally:
 				self.logger.debug('Destroying zcontext...')
 				self.zcontext.destroy()
-			
+				sleep(1.5) # give everything a moment to settle, close, finallize, etc.
 				self.logger.info('Done. Good-bye!')
 
 		finally:
@@ -457,10 +467,21 @@ class JupyterKernelCore(
 		return [self[role + '_socket'] for role in self._EXECUTION_ROLES]
 
 
+	def start_execution_context(self):
+		if self._has_threads('execution'):
+			self._stop_role('execution')
+		self.poll_execution()
+
+
+	def poll_execution_setup(self):
+		"""Prepare for the process loop"""
+		# create a new session inside this thread
+		self.new_execution_session()
 
 	@Context.poll('process')
 	def poll_process(self):
-		"""Called by the Context periodically to drain messages"""
+		if self.interrupted or self.process_zpoller is None:
+			return
 		with ZmqErrorCatcher(self) as catcher:
 			self.process_zpoller.poll(self.zpoll_timeout_ms)        
 			for role, socket in zip(self._PROCESS_ROLES, self.process_sockets):
@@ -474,7 +495,8 @@ class JupyterKernelCore(
 
 	@Context.poll('execution')
 	def poll_execution(self):
-		"""Called by the Context periodically to drain messages"""
+		if self.interrupted or self.execution_zpoller is None:
+			return
 		with ZmqErrorCatcher(self) as catcher:
 			self.execution_zpoller.poll(self.zpoll_timeout_ms)        
 			for role, socket in zip(self._EXECUTION_ROLES, self.execution_sockets):

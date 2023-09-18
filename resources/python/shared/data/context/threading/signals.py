@@ -7,6 +7,9 @@
 from uuid import uuid1
 import functools
 
+from datetime import datetime, timedelta
+from time import sleep
+
 from shared.data.context.base import ContextManagementForContexts
 from shared.data.context.utility import async, JavaException, apply_jitter
 from shared.data.context.threading.base import ThreadContexts, ThreadZombie
@@ -65,7 +68,7 @@ class Signalling(ContextManagementForContexts):
 					del self._signals[role][key]
 			except:
 				pass # already missing
-
+	
 	
 	def _pop_signal(self, role):
 		while role in self._signals:
@@ -164,6 +167,7 @@ class EventLoopStopSignal(EventLoopSignalProcessing):
 					for thread
 					in self._role_threads(role)
 				   ]):
+				self.cancel_signal(role, StopSignal)
 				return
 			sleep(self._EVENT_LOOP_DELAY / 2.0)
 		raise StopTimeout("""Not all threads stopped: %r""" % (
@@ -174,7 +178,8 @@ class EventLoopStopSignal(EventLoopSignalProcessing):
 		))
 			
 	def _stop_roles(self):
-		for role in self.active_roles:
+		roles_to_stop = self.active_roles
+		for role in roles_to_stop:
 			self.signal(role, StopSignal)
 		now = datetime.now()
 		delay = timedelta(seconds=self._stop_wait_max_delay)
@@ -185,6 +190,8 @@ class EventLoopStopSignal(EventLoopSignalProcessing):
 					for thread in threads
 					if role # skip main context handler, since that's probably what called for this
 				   ]):
+				for role in roles_to_stop:
+					self.cancel_signal(role, StopSignal)
 				return
 			sleep(self._EVENT_LOOP_DELAY / 2.0)
 		raise StopTimeout("""Not all threads stopped: %r""" % (

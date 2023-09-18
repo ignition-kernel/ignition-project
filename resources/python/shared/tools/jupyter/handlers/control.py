@@ -6,7 +6,7 @@ logger = shared.tools.jupyter.logging.Logger()
 
 from shared.tools.jupyter.logging import log_message_event
 from shared.tools.jupyter.handlers.dispatch.kernel import kernel_info_request
-
+from shared.tools.jupyter.execution.interruption import interdict_and_interrupt
 
 
 def message_handler(kernel, message):
@@ -36,7 +36,7 @@ def shutdown_request(kernel, message):
 #				'traceback': formatted_traceback(exc_error, exc_tb).splitlines(),
 #			}
 		if message.content.restart:
-			kernel.new_execution_session()
+			kernel._stop_role('execution')
 		else:
 			pass # we'll leave tearing down to Ignition
 		
@@ -45,7 +45,8 @@ def shutdown_request(kernel, message):
 		reply.content.restart = message.content.restart
 
 	if full_tear_down:
-		kernel.tear_down()
+		kernel.stop_loop()
+#		kernel.tear_down()
 
 
 
@@ -54,8 +55,8 @@ def interrupt_request(kernel, message):
 	
 	with kernel.control_message('interrupt_reply', message) as reply:
 		
-		interrupt_retries = 5
-		for i in range(interrupt_retries):
+		# WIP - restart kernel to stop execution v_v -ARG
+		#interdict_and_interrupt(kernel.session)
 			pass # not implemented yet
 			# kernel.session.interrupt_execution()
 		

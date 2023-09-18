@@ -114,7 +114,7 @@ class ThreadContexts(ContextManagementForContexts):
 			return False
 
 	def _has_threads(self, role):
-		if role == _CONTEXT_THREAD_ROLE:
+		if role == self._CONTEXT_THREAD_ROLE:
 			role = None
 		try:
 			thread_ids = self._role_thread_ids[role]

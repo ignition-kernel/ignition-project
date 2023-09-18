@@ -72,7 +72,7 @@ class ContextManagedMessage(WireMessage):
 		zMessage = self.package()
 		
 		try:
-			assert zMessage.send(socket)
+			assert zMessage.send(socket), 'failed to send message on %r: %r' % (socket, zMessage,)
 		except Exception as error:
 			raise error
 		finally:

@@ -49,8 +49,10 @@ class ZmqErrorCatcher(object):
 			if exc_type is None:
 				interrupt = False
 			else:
-				self.context.logger.error(formatted_traceback(exc_val, exc_tb))
-				raise exc_val
+				# assume this is caught by the calling function
+				#self.context.logger.error(formatted_traceback(exc_val, exc_tb))
+				#raise exc_val
+				pass # don't handle it, let it percolate up the stack
 		except ZError as zmq_error:
 			self.logger.error('ZMQ error %(zmq_error)r')
 		except ZMQException as zmq_error:

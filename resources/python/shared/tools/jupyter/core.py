@@ -162,7 +162,7 @@ class JupyterKernelCore(
 			('pre', 'post'), 
 			_PREP_METHODS)
 		)
-	
+	_KERNEL_KEYS = {}
 	
 	ACTIVE_HANDLER_RELOAD = False
 	
@@ -288,11 +288,15 @@ class JupyterKernelCore(
 			self.username = SystemUtils.USER_NAME
 		
 		# set up encryption
-		curve = Curve()
-		self._server_public_key, self._server_secret_key = curve.keypairZ85()
-		
+		# (only generate once per kernel)
+		if not self.kernel_id in self._KERNEL_KEYS:
+			curve = Curve()
+			self._KERNEL_KEYS[self.kernel_id] = curve.keypairZ85()
+		self._server_public_key, self._server_secret_key = self._KERNEL_KEYS[self.kernel_id]
+
 		# cooperate on initialization, in case it's used
 		super(JupyterKernelCore, self).initialize_kernel(**init_kwargs)
+		
 		self._post_init()
 
 
@@ -436,8 +440,12 @@ class JupyterKernelCore(
 		self.new_execution_session()
 
 		# start the zmq socket polling
-		self.poll_process()
-		self.poll_execution()
+		# (but only if not already running)
+		if 'process' not in self.active_roles:
+			self.poll_process()
+		if 'execution' not in self.active_roles:
+			self.poll_execution()
+			#self.start_execution_context()
 		
 		# give everything a moment to settle and come online
 		sleep(0.25)

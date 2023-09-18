@@ -121,7 +121,18 @@ class NamedThreadContexts(ThreadContexts):
 
 	def _name_thread(self, thread=None):
 		if thread is None: thread = Thread.currentThread()
-		assert self._has_role(thread), 'Thread naming should happen after role is resolved and set'
+		
+		# Recovering threads during naming is Bad.
+		# Seems smart, but actually is worse since it might lead to multiple
+		# threads accidentally doing the same job.
+#		current_name_match = re_match_groupdict(self._thread_match_pattern(), thread.getName(), re.I)
+#		if current_name_match and not self._has_role(thread):
+#			assert current_name_match['identifier'] == self.identifier, 'Role recovery not possible for different context identities: attempted to add %r to %r' % (thread, self,)
+#			assert current_name_match['role'],  'Thread naming should happen after role is resolved and set. Attempted to assert role for %r' % (thread,)
+#			self._add_thread(current_name_match['role'], thread)
+#			return
+#		
+		assert self._has_role(thread), 'Thread naming should happen after role is resolved and set. Attempted to name %r' % (thread,)
 		try:
 			name = self._thread_name_format() % self._thread_name_parts(role=self._role(thread))
 			thread.setName(name)

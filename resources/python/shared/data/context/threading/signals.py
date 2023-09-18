@@ -59,7 +59,7 @@ class Signalling(ContextManagementForContexts):
 	def cancel_signal(self, role, message):
 		if role is None:
 			role = self._CONTEXT_THREAD_ROLE
-		for key in frozenset(self._signals[role]):
+		for key in frozenset(self._signals.get(role, [])):
 			try:
 				# note: yes, this means cancelling a signal doesn't dequeueue it.
 				# signals aren't a queue - they act like one out of neccesity,

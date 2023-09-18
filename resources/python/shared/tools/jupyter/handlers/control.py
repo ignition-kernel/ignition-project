@@ -36,7 +36,8 @@ def shutdown_request(kernel, message):
 #				'traceback': formatted_traceback(exc_error, exc_tb).splitlines(),
 #			}
 		if message.content.restart:
-			kernel._stop_role('execution')
+			kernel.new_execution_session()
+			#kernel._stop_role('execution')
 		else:
 			pass # we'll leave tearing down to Ignition
 		
@@ -45,8 +46,8 @@ def shutdown_request(kernel, message):
 		reply.content.restart = message.content.restart
 
 	if full_tear_down:
-		kernel.stop_loop()
-#		kernel.tear_down()
+		kernel.tear_down()
+		#kernel.stop_loop()
 
 
 

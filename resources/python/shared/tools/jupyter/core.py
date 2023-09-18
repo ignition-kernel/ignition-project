@@ -15,6 +15,7 @@ import string
 import json
 from time import sleep
 import re
+import sys
 
 from org.apache.commons.lang3 import SystemUtils
 
@@ -642,6 +643,8 @@ def spawn_kernel(**kernel_init_kwargs):
 		kernel.start_loop()
 		return kernel
 	except:
+		exc_type, exc_val, exc_tb = sys.exc_info()
+		logger.error(formatted_traceback(exc_val, exc_tb))
 		raise RuntimeError("Kernel likely failed to start. Check logs.")
 		return None
 

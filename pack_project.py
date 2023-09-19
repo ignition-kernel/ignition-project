@@ -184,7 +184,8 @@ def package_project_export(zip_root, semver):
     zip_root = os.path.abspath(zip_root)
     build_root = os.path.abspath(os.path.join(zip_root, '..', 'build'))
 
-    with ZipFile(os.path.join(zip_root, 'Jupyter_Kernel_for_Ignition_%s.zip' % (semver)), 'w') as projzip:
+    project_filename = 'Jupyter_Kernel_for_Ignition_%s.zip' % (semver)
+    with ZipFile(os.path.join(zip_root, project_filename), 'w') as projzip:
         
         # with open(os.path.join(build_root, 'project.json'), 'rb') as read_file:
         #     with projzip.open('project.json', 'w') as write_zip:
@@ -206,11 +207,13 @@ def package_project_export(zip_root, semver):
                     with projzip.open(os.path.join(sub_path, filename), 'w') as write_zip:
                         write_zip.write(read_file.read())
 
+    print(f'Packed into {project_filename}')
+
 
 
 if __name__ == '__main__':
 
-    mirror_into_ignition_project_script_format('./python', './build/ignition/script-python')
-    mirror_into_ignition_webdev_format('./webdev', './build/com.inductiveautomation.webdev/resources')
+    mirror_into_ignition_project_script_format('./resources/python', './build/ignition/script-python')
+    mirror_into_ignition_webdev_format('./resources/webdev', './build/com.inductiveautomation.webdev/resources')
 
     package_project_export('./dist/', 'v' + str(highest_tagged_git_version('./')))

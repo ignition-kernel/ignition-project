@@ -21,7 +21,9 @@ import urllib2 # because it Just Works (TM) -- nothing clever, just data
 import hashlib
 
 
-JAR_FOLDER = r'C:/Workspace/temp'
+# JAR_FOLDER = r'C:/Workspace/temp'
+JAR_FOLDER = './user-lib/pylib'
+
 
 JAR_FILENAME_PATTERN = '{library}-{major}.{minor}.{patch}.jar'
 
